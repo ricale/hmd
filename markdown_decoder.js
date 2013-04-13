@@ -74,7 +74,7 @@ RICALE.MarkdownDecoder = function(targetElement) {
 		{ key : this.H4,         exp : /^#{4} (.*)(#*)$/ },
 		{ key : this.H5,         exp : /^#{5} (.*)(#*)$/ },
 		{ key : this.H6,         exp : /^#{6} (.*)(#*)$/ },
-		{ key : this.CODEBLOCK,  exp : /^([ ]{0,3}\t|[ ]{4})([ \t]*.+)$/ }
+		{ key : this.CODEBLOCK,  exp : /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/ }
 	];
 
 	this.regExpForList = [
@@ -83,7 +83,7 @@ RICALE.MarkdownDecoder = function(targetElement) {
 		{ key : this.OL, exp : /^([\s]*)[\d]+\.[ ]+(.*)$/ },
 	]
 
-	this.regExpContinuedListBelowBlank = /^[\s]{1}(.*)/;
+	this.regExpContinuedListBelowBlank = /^[\s]{1,7}(.*)/;
 }
 
 RICALE.MarkdownDecoder.prototype = {
@@ -95,76 +95,20 @@ RICALE.MarkdownDecoder.prototype = {
 
 		// 한 줄 한 줄이 어떤 마크다운에 해당하는 지 체크한다.
 		for(var i = 0; i < array.length; i++) {
+
+			// 목록 혹은 수평선에 해당하는 지 먼저 확인한다.
+			// 아래 'UL 혹은 OL 혹은 UL/OL의 연장'을 구분하기 이전에 선행되지 않으면
+			// 목록과 구분되지 않는다.
 			this.result[now] = this.matchList(array[i]);
 
-			if(this.result[now] != null) {
-				now++;
-				continue;
+			// 목록 혹은 수평선이라면 continue;
+			if(this.result[now] == null) {
+
+				// 위와 같은 상황이 아니라면
+				// 다른 일반적인 마크다운 문법을 체크한다.
+				this.result[now] = this.match(array[i], now);
 			}
 
-			// 빈 줄을 제외하고, 바로 윗 줄에 대한 정보를 얻는다.
-			var above = this.aboveExceptBlank(now);
-
-			// 1. 빈 줄을 제외한 윗 줄이 존재하고
-			// 2. 그 윗 줄이 UL 혹은 OL 혹은 UL/OL의 연장이고
-			// 3. 실제 바로 윗 줄은 빈 줄이라면
-			// 현재 줄 또한 UL 혹은 OL 혹은 UL/OL의 연장의 연장이라면
-			// 줄 상태를 저장하고 continue; 한다.
-			if(above != null
-			   && (((above.tag == this.UL || above.tag == this.OL || above.tag == this.CONTINUE) && this.result[now - 1].tag == this.BLANK)
-			       || above.tag == this.CONTINUE)) {
-
-				var line = this.matchContinuedList(array[i]);
-
-				if(line != null) {
-					this.result[now] = line;
-					this.result[now].child = this.match(this.result[now].child);
-					now++;
-					continue;
-				}
-			}
-
-			// 위와 같은 상황이 아니라면
-			// 다른 일반적인 마크다운 문법을 체크한다.
-			this.result[now] = this.match(array[i]);
-
-			// 1. 빈 줄을 제외한 윗 줄이 존재하고
-			// 2. 그 윗 줄이 코드블록이 아니며
-			// 3. 실제 바로 윗 줄과 현재 줄이 모두 빈 줄이라면
-			// 이번 줄은 저장하지 않고 넘어간다. (continue;)
-	/*		if(above != null
-			   && above.tag != this.CODEBLOCK
-			   && this.result[now - 1].tag == this.BLANK && this.result[now].tag == this.BLANK) {
-
-				continue;
-			}
-*/
-/*
-			// 만약 이 줄의 마크다운 요소를 찾지 못했다면
-			// 바로 윗 줄의 상태에 따라 현재 줄의 상태를 판단한다.
-			if(typeof(this.result[now].tag) == typeof(null)) {
-				
-				switch(this.result[now - 1].tag) {
-					case this.BLANK:
-					case this.P:
-					case this.H1:
-					case this.H2:
-					case this.H3:
-					case this.H4:
-					case this.H5:
-					case this.H6:
-					case this.HR:
-					case this.CODEBLOCK:
-						this.result[now].tag = this.P;
-						break;
-					case this.UL:
-					case this.OL:
-					case this.CONTINUE:
-						this.result[now].tag = this.CONTINUE;
-						break;
-				}
-			}
-*/
 			if(this.listLevel.length > 0 
 				&& this.result[now].tag != this.UL
 				&& this.result[now].tag != this.OL
@@ -174,7 +118,7 @@ RICALE.MarkdownDecoder.prototype = {
 			
 			now++;
 		}
-
+/*
 		var debug = "<table><tr><th></th><th>인용</th><th>태그</th><th>레벨</th><th>내용</th></tr>";
 
 		for(var i = 0; i < this.result.length; i++) {
@@ -191,11 +135,11 @@ RICALE.MarkdownDecoder.prototype = {
 		debug += "</table>";
 
 		this.target.html(debug);
-
+*/
 		this.decode();
 	},
 
-	match: function(string) {
+	match: function(string, now) {
 		var result = this.matchBlockquotes(string),
 		    string = result.child;
 
@@ -230,6 +174,12 @@ RICALE.MarkdownDecoder.prototype = {
 				return result;
 			} // end if
 		} // end for
+
+		isContinued = this.matchContinuedList(string, now);
+
+		if(isContinued != null) {
+			return isContinued;
+		}
 		
 		result.tag = this.P;
 		result.child = string;
@@ -240,8 +190,6 @@ RICALE.MarkdownDecoder.prototype = {
 	matchList: function(string) {
 		var result = this.matchBlockquotes(string),
 		    string = result.child;
-
-		
 
 		for(var i = 0; i < this.regExpForList.length; i++) {
 
@@ -271,8 +219,38 @@ RICALE.MarkdownDecoder.prototype = {
 						break;
 				} // end switch
 
+				var debug = result.quote + "    " + result.tag + "    " + result.level + "    " + result.child;
+				console.log(debug);
 				return result;
 			} // end if
+		}
+
+		return null;
+	},
+
+	matchContinuedList: function(string, now) {
+		var result = new RICALE.MarkdownSentence();
+
+		// 빈 줄을 제외하고, 바로 윗 줄에 대한 정보를 얻는다.
+		var above = this.aboveExceptBlank(now);
+		var line = string.match(this.regExpContinuedListBelowBlank)
+		var before = this.beforeLine(now);
+
+		if(before != null && (before.tag == this.UL || before.tag == this.OL || before.tag == this.CONTINUE)) {
+
+			result.tag = this.CONTINUE;
+			result.child = string;
+
+			return result;
+
+		} else if(above != null
+		   && (above.tag == this.UL || above.tag == this.OL || above.tag == this.CONTINUE)
+		   && line !== null) {
+
+			result.tag = this.CONTINUE;
+			result.child = line[1];
+
+			return result;
 		}
 
 		return null;
@@ -296,35 +274,17 @@ RICALE.MarkdownDecoder.prototype = {
 		return result;
 	},
 
-	// 바로 윗 줄이 빈 줄
-	// 그 윗 줄이 리스트일 때
-	// 이놈을 호출
-	matchContinuedList: function(string) {
-		var result = new RICALE.MarkdownSentence(),
-		    line = string.match(this.regExpContinuedListBelowBlank);
-
-		if(string.match(this.regExp))
-
-		if(line != null) {
-			result.tag = this.CONTINUE;
-			result.child = line[1];
-
-			return result;
-
-		} else {
-			return null;
-		}
-	},
-
 	getListLevel: function(blank) {
 		var indent = blank.match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g),
 		    space = 0;
 
-		for(var tab in indent) {
-			if(tab.match(/^[ ]{1,3}$/) != null) {
-				space += tab.length;
-			} else {
-				space += 4;
+		if(indent != null) {
+			for(var i = 0; i < indent.length; i++) {
+				if(indent[i].match(/^[ ]{1,3}$/) != null) {
+					space += indent[i].length;
+				} else {
+					space += 4;
+				}
 			}
 		}
 
@@ -367,21 +327,6 @@ RICALE.MarkdownDecoder.prototype = {
 				}
 			}
 		}
-/*
-		if(this.nowList1Level == null) {
-			if(indent != null) {
-				return this.CODEBLOCK;
-			}
-
-			this.nowList1Level = blank.length;
-			return 0;
-
-		} else if(this.nowList2Level == null) {
-			if(indent != null) {
-				this.nowList1Level == blank.length
-				
-			}
-		}*/
 	},
 
 	aboveExceptBlank: function(index) {
@@ -394,6 +339,10 @@ RICALE.MarkdownDecoder.prototype = {
 		return null;
 	},
 
+	beforeLine: function(index) {
+		return index > 1 ? this.result[index - 1] : null;
+	},
+
 	belowExceptBlank: function(index) {
 		for(var i = index + 1; i < this.result.length; i++) {
 			if(this.result[i].tag != this.BLANK) {
@@ -404,6 +353,10 @@ RICALE.MarkdownDecoder.prototype = {
 		return null;
 	},
 
+	nextLine: function(index) {
+		return index < this.result.length - 1 ? this.result[index + 1] : null;
+	},
+
 	decode: function() {
 		var string = "",
 		    fUL = 0,
@@ -411,21 +364,25 @@ RICALE.MarkdownDecoder.prototype = {
 		    fLI = false,
 		    fP = false,
 		    fCB = false,
-		    fBQ = 0;
+		    fBQ = 0,
+		    fCONT = false;
 
 		for(var i = 0; i < this.result.length; i++) {
-			var r = this.result[i],
-			    line = "";
+			var line = "";
+			    r = this.result[i],			    
+			    above = this.aboveExceptBlank(i),
+			    before = this.beforeLine(i),
+			    below = this.belowExceptBlank(i),
+			    next = this.nextLine(i);
+
 			    
 
-			if(r.quote > 0) {
-				if(r.quote > fBQ) {
-					for(var j = 0; j < r.quote - fBQ; j++) {
-						line += "<blockquote>";
-					}
-
-					fBQ = r.quote;
+			if(r.quote > 0 && r.quote > fBQ) {
+				for(var j = 0; j < r.quote - fBQ; j++) {
+					line += "<blockquote>";
 				}
+
+				fBQ = r.quote;
 			}
 
 			switch(r.tag) {
@@ -451,10 +408,9 @@ RICALE.MarkdownDecoder.prototype = {
 					line += "<hr/>";
 					break;
 				case this.BLANK:
-					var above = this.aboveExceptBlank(i);
-					var below = this.belowExceptBlank(i);
 
-					if(above != null && below != null && above.tag == this.CODEBLOCK && below.tag == this.CODEBLOCK) {
+					if((above != null && below != null && above.tag == this.CODEBLOCK && below.tag == this.CODEBLOCK)
+						|| r.quote != 0) {
 						line += r.child;
 					} else {
 						continue;
@@ -470,21 +426,26 @@ RICALE.MarkdownDecoder.prototype = {
 						fUL = r.level;
 					}
 
-					line += "<li>" + r.child;
+					line += "<li>";
+					fLI = true;
 
-					if(this.result[i+1].tag != this.P) {
+					if(next != null && next.tag == this.CONTINUE) {
+						line += "<p>";
+						fCONT = true;
+					}
+
+					line += r.child;
+
+					if(below == null || below.tag != this.CONTINUE) {
 						line += "</li>";
-						fLI = false;
 
-						if(fUL > this.result[i+1].level) {
-							for(var j = 0; j < fUL - this.result[i+1].level; j++) {
+						var level = below != null ? below.level : 0;
+						if(fUL > level) {
+							for(var j = 0; j < fUL - level; j++) {
 								line += "</ul>"
 							}
-							fUL = this.result[i+1].level;
-
+							fUL = level;
 						}
-					} else {
-						fLI = true;
 					}
 
 					break;
@@ -497,35 +458,54 @@ RICALE.MarkdownDecoder.prototype = {
 						fOL = r.level;
 					}
 
-					line += "<li>" + r.child;
+					line += "<li>";
+					fLI = true;
 
-					if(this.result[i+1].tag != this.P) {
+					if(next != null && next.tag == this.CONTINUE) {
+						line += "<p>";
+						fCONT = true;
+					}
+
+					line += r.child;
+
+					if(below == null || below.tag != this.CONTINUE) {
 						line += "</li>";
-						fLI = false;
 
-						if(fOL > this.result[i+1].level) {
-							for(var j = 0; j < fOL - this.result[i+1].level; j++) {
+						var level = below != null ? below.level : 0;
+						if(fOL > level) {
+							for(var j = 0; j < fOL - level; j++) {
 								line += "</ol>"
 							}
-							fOL = this.result[i+1].level;
-
+							fOL = level;
 						}
-					} else {
-						fLI = true;
+					}
+
+					break;
+
+				case this.CONTINUE:
+					if(!fCONT) {
+						line += "<p>";
+						fCONT = true;
+					}
+
+					line += r.child;
+
+					if(next != null && next.tag != this.CONTINUE) {
+						line += "</p>";
+						fCONT = false;
 					}
 
 					break;
 
 				case this.CODEBLOCK:
 					if(!fCB) {
-						line += "<pre><code>" + r.child;
+						line += "<pre><code>";
 						fCB = true;
-					} else {
-						line += r.child;
 					}
 
-					var below = this.belowExceptBlank(i);
-					if(below == null || below.tag != this.CODEBLOCK) {
+					line += r.child;
+
+					if(below == null || below.tag != this.CODEBLOCK || below.quote > r.quote) {
 						line += "</code></pre>"
 						fCB = false;
 					}
@@ -540,7 +520,7 @@ RICALE.MarkdownDecoder.prototype = {
 
 					line += r.child;
 
-					if(this.result[i+1].tag != this.P) {
+					if(next == null || next.tag != this.P || below.quote > r.quote) {
 						line += "</p>";
 						fP = false;
 					}
@@ -551,19 +531,27 @@ RICALE.MarkdownDecoder.prototype = {
 					break;
 			}
 
-			var below = this.belowExceptBlank(i);
-			if(below.quote < fBQ) {
-				for(var j = 0; j < fBQ - below.quote; j++) {
+			if(below == null || (below.quote < fBQ && (next == null || (next.tag == this.BLANK && next.quote == 0)))) {
+
+				console.log(fBQ);
+				var quote = below != null ? below.quote : 0
+				for(var j = 0; j < fBQ - quote; j++) {
 					line += "</blockquote>";
+					console.log("!");
 				}
-				fBQ = below.quote;
+				fBQ = quote;
+
+				console.log(fBQ);
 			}
 
 			var debug = this.result[i].quote + "    " + this.result[i].tag + "    " + this.result[i].level + "    " + this.result[i].child;
-
 			console.log(debug);
+
 			console.log(line);
+			string += line;
 		}
+
+		this.target.html(string);
 	}
 } // RICALE.MarkdownDecoder.prototype
 
