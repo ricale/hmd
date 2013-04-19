@@ -41,6 +41,8 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 	// 줄 별 번역 결과(RICALE.MarkdownSentence)의 배열
 	this.result = Array();
 
+	this.referencedId = {};
+
 	// 목록 요소의 레벨 계산을 위한 배열 (정수)
 	this.listLevel = Array();
 	this.lastListLevel = 0;
@@ -60,6 +62,8 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 	this.HR = "hr";
 	this.UL = "ul";
 	this.OL = "ol";
+
+	this.REFERENCED = "referencedId"
 
 	this.EM = "em";
 	this.STRONG = "strong";
@@ -83,23 +87,32 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 		{ key : this.H4,         exp : /^#{4} (.*)(#*)$/ },
 		{ key : this.H5,         exp : /^#{5} (.*)(#*)$/ },
 		{ key : this.H6,         exp : /^#{6} (.*)(#*)$/ },
-		{ key : this.CODEBLOCK,  exp : /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/ }
+		{ key : this.CODEBLOCK,  exp : /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/ },
+		{ key : this.REFERENCED, exp : /^\s*\[(.+)\]:\s*([^\s]+)$/ }
 	];
 
 	// 인용 구분을 위한 정규 표현식
 	// this.matchBlockquotes 함수에서만 쓰인다.
-	this.regExpBlockquote = /^([>]+)[ ]([ ]*.*)$/;
+	this.regExpBlockquote = /^(>+)[ ]([ ]*.*)$/;
 
 	// CONTINUE 를 구분하기 위한 정규 표현식
 	this.regExpContinuedListBelowBlank = /^[\s]{1,7}(.*)/;
 
-	// key 값이 실제로 hash에서의 key처럼 쓰이는 것이 아니기에
-	// 중복이 존재한다.
-	this.regExpInline = [
-		{ key : this.EM,     exp : /(\*(.+)\*|_(.+)_)/g },
-		{ key : this.STRONG, exp : /(\*\*(.+)\*\*|__(.+)__)/g },
-		{ key : this.CODE,   exp : /(`{2}(.+)`{2}|`{1}(.+)`{1})/g },
+	this.regExpInline = {};
+	this.regExpInline[this.STRONG] = [
+		/\*\*(.+)\*\*/g,
+		/__(.+)__/g
+	];
+	this.regExpInline[this.EM] = [ 
+		/\*(.+)\*/g,
+		/_(.+)_/g
+	];
+	this.regExpInline[this.CODE] = [
+		/`{2}(.+)`{2}/g,
+		/`{1}(.+)`{1}/g
+	];
 
+	this.regExpLinks = [
 		{ key : this.IMG_INLINE,    exp : /!\[(.+)\]\(([^\s]+) (".+")?\)/g }, // 주소 형식은 상관 없다.
 		{ key : this.IMG_REFERENCE, exp : /!\[(.+)\]\s*\[(.*)\]/g },
 
@@ -107,8 +120,6 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 		{ key : this.LINK_REFERENCE, exp : /\[(.+)\]\s*\[(.*)\]/g },
 		{ key : this.LINK_AUTO,      exp : /<.+>/g }, //< 꺽쇠괄호 안의 값은 무조건 주소 형식이어야 한다.
 	]
-
-	this.regExpReferencedId = /\[(.+)\]:\s*([^\s]+)/g;
 }
 
 RICALE.MarkdownDecoder.prototype = {
@@ -119,18 +130,24 @@ RICALE.MarkdownDecoder.prototype = {
 		var array = this.source.text().split(/\n/);
 
 		// 한 줄 한 줄이 어떤 마크다운에 해당하는 지 체크한다.
-		for(var i = 0; i < array.length; i++) {
+		for(var i = 0, now = 0; i < array.length; i++) {
 
-			this.result[i] = this.match(array[i], i);
+			this.result[now] = this.match(array[i], now);
+
+			if(this.result[now].tag == this.REFERENCED) {
+				continue;
+			}
 
 			// 이전까지 목록 요소들이었다가
 			// 현재 줄에서 목록 요소가 아니게 되면 목록 관련 계산 배열을 초기화한다.
 			if(this.listLevel.length > 0 
-				&& this.result[i].tag != this.UL
-				&& this.result[i].tag != this.OL
-				&& this.result[i].tag != this.CONTINUE) {
+				&& this.result[now].tag != this.UL
+				&& this.result[now].tag != this.OL
+				&& this.result[now].tag != this.CONTINUE) {
 				this.listLevel = Array();
 			}
+
+			now++;
 		}
 
 		// 줄 단위로 번역한된 것을 통합해서 해석
@@ -192,6 +209,9 @@ RICALE.MarkdownDecoder.prototype = {
 					case this.CODEBLOCK:
 						result.child = line[2];
 						break;
+
+					case this.REFERENCED:
+						this.referencedId[line[1]] = line[2];
 				} // end switch
 
 				return result;
@@ -415,6 +435,22 @@ RICALE.MarkdownDecoder.prototype = {
 		return index < this.result.length - 1 ? this.result[index + 1] : null;
 	},
 
+	decodeInline: function(string) {
+		for(var i = 0; i < this.regExpInline[this.STRONG].length; i++) {
+			string = string.replace(this.regExpInline[this.STRONG][i], '<strong>$1</strong>');
+		}
+		
+		for(var i = 0; i < this.regExpInline[this.EM].length; i++) {
+			string = string.replace(this.regExpInline[this.EM][i], '<em>$1</em>');
+		}
+
+		for(var i = 0; i < this.regExpInline[this.CODE].length; i++) {
+			string = string.replace(this.regExpInline[this.CODE][i], '<code>$1</code>');
+		}
+
+		return string;
+	},
+
 	// 분석한 줄들을 토대로 전체 글을 번역한다.
 	// this.translate에서 바로 하지 않는 이유는
 	// 전후 줄의 상태에 따라 분석이 달라질 수 있기 때문이다.
@@ -438,11 +474,13 @@ RICALE.MarkdownDecoder.prototype = {
 		// 줄 단위로 확인한다.
 		for(var i = 0; i < this.result.length; i++) {
 			var line = "";
-			    r = this.result[i],			    
+			    r = this.result[i],
 			    above = this.aboveExceptBlank(i),
 			    before = this.beforeLine(i),
 			    below = this.belowExceptBlank(i),
 			    next = this.nextLine(i);
+
+			r.child = this.decodeInline(r.child);
 
 			// 인용이 있고 이전 줄의 인용보다 레벨이 높다면
 			// 높은 레벨 만큼 <blockquote> 태그 추가
@@ -482,10 +520,6 @@ RICALE.MarkdownDecoder.prototype = {
 					if((above != null && below != null && above.tag == this.CODEBLOCK && below.tag == this.CODEBLOCK)
 						|| r.quote != 0) {
 						line += r.child;
-
-					// 그렇지 안으면 공백은 내용에 넣지 않는다.
-					} else {
-						continue;
 					}
 
 					break;
@@ -679,10 +713,10 @@ RICALE.MarkdownDecoder.prototype = {
 } // RICALE.MarkdownDecoder.prototype
 
 
-
+var decoder;
 // 사용 예제 코드
 $(document).ready(function() {
-	var decoder = new RICALE.MarkdownDecoder($('#source'), $('#target'));
+	decoder = new RICALE.MarkdownDecoder($('#source'), $('#target'));
 	$('#source').click(function() {
 		decoder.translate();
 	});
