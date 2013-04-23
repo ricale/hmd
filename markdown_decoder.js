@@ -50,7 +50,6 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 	// 어떤 마크다운 문법이 적용되었는지 구별할 문자열들 (키값)
 	this.P = "p";
 	this.CONTINUE = "continue"; //< 인용/목록에서 p가 길게 쓰일 때를 구분하기 위한 상수
-	this.BLOCKQUOTE = "blockquote";
 	this.BLANK = "blank";
 	this.H1 = "h1";
 	this.H2 = "h2";
@@ -65,61 +64,55 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 
 	this.REFERENCED = "referencedId"
 
-	this.EM = "em";
-	this.STRONG = "strong";
-	this.CODE = "code";
-	this.IMG_INLINE = "img_inline";
-	this.IMG_REFERENCE = "img_reference";
-	this.IMG_ID = "img_id";
-	this.LINK_INLINE = "a_inline";
-	this.LINK_REFERENCE = "a_reference";
-	this.LINK_AUTO = "a_auto";
+	this.regExp = {};
+	this.regExp[this.HR] = /(^[ ]{0,3}[-]+[ ]*[-]+[ ]*[-]+[ ]*$)|(^[ ]{0,3}[_]+[ ]*[_]+[ ]*[_]+[ ]*$)|(^[ ]{0,3}[\*]+[ ]*[\*]+[ ]*[\*]+[ ]*$)/;
+	this.regExp[this.UL] = /^([\s]*)[\*+-][ ]+(.*)$/;
+	this.regExp[this.OL] = /^([\s]*)[\d]+\.[ ]+(.*)$/;
+	this.regExp[this.BLANK] = /(^[\s]*$)|(^$)/;
+	this.regExp[this.CODEBLOCK]  = /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/;
+	this.regExp[this.REFERENCED] = /^\s*\[(.+)\]:\s*([^\s]+)$/;
 
-	// 마크다운 문법을 구분하기 위한 정규 표현식들
-	this.regExp = [ 
-		{ key : this.HR, exp : /(^[ ]{0,3}[-]+[ ]*[-]+[ ]*[-]+[ ]*$)|(^[ ]{0,3}[_]+[ ]*[_]+[ ]*[_]+[ ]*$)|(^[ ]{0,3}[\*]+[ ]*[\*]+[ ]*[\*]+[ ]*$)/ },
-		{ key : this.UL, exp : /^([\s]*)[\*+-][ ]+(.*)$/ },
-		{ key : this.OL, exp : /^([\s]*)[\d]+\.[ ]+(.*)$/ },
-		{ key : this.BLANK,      exp : /(^[\s]*$)|(^$)/ },
-		{ key : this.H1,         exp : /^# (.*)(#*)$/ },
-		{ key : this.H2,         exp : /^#{2} (.*)(#*)$/ },
-		{ key : this.H3,         exp : /^#{3} (.*)(#*)$/ },
-		{ key : this.H4,         exp : /^#{4} (.*)(#*)$/ },
-		{ key : this.H5,         exp : /^#{5} (.*)(#*)$/ },
-		{ key : this.H6,         exp : /^#{6} (.*)(#*)$/ },
-		{ key : this.CODEBLOCK,  exp : /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/ },
-		{ key : this.REFERENCED, exp : /^\s*\[(.+)\]:\s*([^\s]+)$/ }
-	];
-
-	// 인용 구분을 위한 정규 표현식
-	// this.matchBlockquotes 함수에서만 쓰인다.
+	this.regExpHeading = /^(#{1,6}) (.*)(#*)$/;
 	this.regExpBlockquote = /^(>+)[ ]([ ]*.*)$/;
 
 	// CONTINUE 를 구분하기 위한 정규 표현식
 	this.regExpContinuedListBelowBlank = /^[\s]{1,7}(.*)/;
 
 	this.regExpInline = {};
-	this.regExpInline[this.STRONG] = [
-		/\*\*(.+)\*\*/g,
-		/__(.+)__/g
+	this.regExpStrong = [
+		/\*\*([^\s]+.*[^\s]+)\*\*/g,
+		/__([^\s]+.*[^\s]+)__/g
 	];
-	this.regExpInline[this.EM] = [ 
-		/\*(.+)\*/g,
-		/_(.+)_/g
+	this.regExpEM = [ 
+		/\*([^\s]+.*[^\s]+)\*/g,
+		/_([^\s]+.*[^\s]+)_/g
 	];
-	this.regExpInline[this.CODE] = [
+	this.regExpCode = [
 		/`{2}(.+)`{2}/g,
 		/`{1}(.+)`{1}/g
 	];
 
-	this.regExpLinks = [
-		{ key : this.IMG_INLINE,    exp : /!\[(.+)\]\(([^\s]+) (".+")?\)/g }, // 주소 형식은 상관 없다.
-		{ key : this.IMG_REFERENCE, exp : /!\[(.+)\]\s*\[(.*)\]/g },
+	this.regExpImg = /!\[(.+)\]\s*\[(.*)\]/;
+	this.regExpLink = /\[(.+)\]\s*\[(.*)\]/;
 
-		{ key : this.LINK_INLINE,    exp : /\[(.+)\]\(([^\s]+) (".+")?\)/g }, // 주소 형식은 상관 없다.
-		{ key : this.LINK_REFERENCE, exp : /\[(.+)\]\s*\[(.*)\]/g },
-		{ key : this.LINK_AUTO,      exp : /<.+>/g }, //< 꺽쇠괄호 안의 값은 무조건 주소 형식이어야 한다.
-	]
+	// 한 문장으로 표현될 수 있지만,
+	// 상황에 따라 번역되는 결과가 미묘하게 다르기 때문에 나눈다.
+	// 한 문장으로 표현하면 - /!\[(.+)\]\s*\(([^\s]+)( "(.+)")?\)/g
+	this.regExpImgInline = [
+		/!\[(.+)\]\s*\(([^\s]+) "(.*)"\)/g,
+		/!\[(.+)\]\s*\(([^\s]+)\)/g
+	];
+
+	// 한 문장으로 표현될 수 있지만,
+	// 상황에 따라 번역되는 결과가 미묘하게 다르기 때문에 나눈다.
+	// 한 문장으로 표현하면 - /\[(.+)\]\s*\(([^\s]+)( "(.+)")?\)/g
+	this.regExpLinkInline = [
+		/\[(.+)\]\s*\(([^\s]+) "(.*)"\)/g,
+		/\[(.+)\]\s*\(([^\s]+)\)/g
+	];
+
+	this.regExpLinkAuto = /<(http[s]?:\/\/.+)>/g;
+	this.regExpBreak = /(  )$/;
 }
 
 RICALE.MarkdownDecoder.prototype = {
@@ -162,66 +155,79 @@ RICALE.MarkdownDecoder.prototype = {
 		var result = this.matchBlockquotes(string),
 		    string = result.child;
 
-		// 정규 표현식과 비교해 어떤 마크다운 문법이 쓰였는지 확인한다.
-		for(var j = 1; j < this.regExp.length; j++) {
+		// 문자열(string)이 HR인지 확인
+		var line = string.match(this.regExp[this.HR]);
+		if(line != null) {
+			result.tag   = this.HR;
+			result.child = "";
+			return result;
+		}
 
-			var line = string.match(this.regExp[j].exp);
+		// 문자열(string)이 UL인지 확인
+		line = string.match(this.regExp[this.UL]);
+		if(line != null) {
+			var r = this.isThisReallyListElement(this.UL, line, result);
+			if(r !== false) {
+				return r;
+			} else {
+				line = string.match(this.regExp[this.CODEBLOCK]);
+				return this.getCodeblockResult(line, result);
+			}
+		}
 
-			// 매치되는 블록 값을 찾으면 태그의 종류와 내용을 저장한다.
-			if(line != null) {
-				result.tag = this.regExp[j].key;
+		// 문자열(string)이 OL인지 확인
+		line = string.match(this.regExp[this.OL]);
+		if(line != null) {
+			var r = this.isThisReallyListElement(this.UL, line, result);
+			if(r !== false) {
+				return r;
+			} else {
+				line = string.match(this.regExp[this.CODEBLOCK]);
+				return this.getCodeblockResult(line, result);
+			}
+		}
 
-				switch(result.tag) {
-					case this.HR:
-						result.child = "";
-						break;
+		// 문자열(string)이 빈줄인지 확인
+		line = string.match(this.regExp[this.BLANK]);
+		if(line != null) {
+			result.tag   = this.BLANK;
+			result.child = "";
+			return result;
+		}
 
-					case this.UL:
-					case this.OL:
-						// 이 목록 요소의 레벨이 몇인지 확인한다.
-						var r = this.getListLevel(line[1]);
+		// 문자열(string)이 코드블록인지 확인
+		line = string.match(this.regExp[this.CODEBLOCK]);
+		if(line != null) {
+			return this.getCodeblockResult(line, result);
+		}
 
-						// 레벨을 저장한다.
-						// 단 레벨이 없다면 (getListLevel의 반환 값이 정수가 아니라면)
-						// 다른 요소라는 뜻이므로 변경한다.
-						if(typeof(r) == typeof(0)) {
-							result.level = r;	
-						} else {
-							result.tag = r;
-						}
-						result.child = line[2];
+		// 문자열(string)이 헤딩(h1, h2, h3, h4, h5, h6)인지 확인
+		line = string.match(this.regExpHeading);
+		if(line != null) {
+			var headingLevel = line[1].length;
 
-						break;
+			switch(headingLevel) {
+				case 1: result.tag = this.H1; break;
+				case 2: result.tag = this.H2; break;
+				case 3: result.tag = this.H3; break;
+				case 4: result.tag = this.H4; break;
+				case 5: result.tag = this.H5; break;
+				case 6: result.tag = this.H6; break;
+			}
 
-					case this.BLANK:
-						result.child = "";
-						break;
+			result.child = line[2];
+			return result;
+		}
 
-					case this.H1:
-					case this.H2:
-					case this.H3:
-					case this.H4:
-					case this.H5:
-					case this.H6:
-						result.child = line[1];
-						break;
+		line = string.match(this.regExp[this.REFERENCED]);
+		if(line != null) {
+			result.tag = this.REFERENCED;
+			this.referencedId[line[1]] = line[2];
+			return result;
+		}
 
-					case this.CODEBLOCK:
-						result.child = line[2];
-						break;
-
-					case this.REFERENCED:
-						this.referencedId[line[1]] = line[2];
-				} // end switch
-
-				return result;
-			} // end if
-		} // end for
-
-		// 목록 요소로부터 늘어진 문단 요소인지 확인한다.
-		isContinued = this.matchContinuedList(string, now);
-
-		if(isContinued != null) {
+		var isContinued = this.matchContinuedList(string, now);
+		if(isContinued != false) {
 			return isContinued;
 		}
 
@@ -229,9 +235,29 @@ RICALE.MarkdownDecoder.prototype = {
 		// 문단 요소로 판단한다.		
 		result.tag = this.P;
 		result.child = string;
+		return result;
 
-		return result;		
 	}, // end function match
+
+	isThisReallyListElement: function(tag, line, result) {
+		var r = this.getListLevel(line[1]);
+
+		if(r.tag != this.CODEBLOCK) {
+			result.tag   = r.tag != null ? r.tag : tag;
+			result.level = r.level;
+			result.child = line[2];
+			return result;
+
+		} else {
+			return false;
+		}
+	},
+
+	getCodeblockResult: function(line, result) {
+		result.tag   = this.CODEBLOCK;
+		result.child = line[2];
+		return result;
+	},
 
 	// 문자열(string)이 목록 요소로부터 늘어진 문단 요소 (CONTINUE) 인지 확인한다.
 	// this.match에서밖에 쓰이지 않기 때문에 따로 함수로 작성할 필요는 없지만
@@ -257,8 +283,8 @@ RICALE.MarkdownDecoder.prototype = {
 			return result;
 
 		// 빈 줄을 제외한 윗 줄이 존재하는 가운데
-		// 그 윗 줄이 몰고 혹은 CONTINUE 요소이고
-		// CONTINUE 요소로서 문법적으로 적절하다면
+		// 그 윗 줄이 목록 혹은 CONTINUE 요소이고
+		// 이 줄이 CONTINUE 요소로서 문법적으로 적절하다면
 		// 이 줄 또한 CONTINUE 요소이다.
 		} else if(above != null
 		   && (above.tag == this.UL || above.tag == this.OL || above.tag == this.CONTINUE)
@@ -271,7 +297,7 @@ RICALE.MarkdownDecoder.prototype = {
 		}
 
 		// 위의 어떠한 사항에도 해당하지 않는다면 이 줄은 CONTINUE 요소가 아니다.
-		return null;
+		return false;
 	},
 
 	// 이 줄(string)이 인용 요소에 포함된 줄인지,
@@ -303,7 +329,11 @@ RICALE.MarkdownDecoder.prototype = {
 	getListLevel: function(blank) {
 		// 이 줄의 들여쓰기가 몇 탭(tab) 몇 공백(space)인지 확인한다.
 		var indent = blank.match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g),
-		    space = 0;
+		    space = 0
+		    result = {
+		    	tag   : null,
+		    	level : null
+		    };
 
 		// 공백으로만 계산하면 들여쓰기가 몇 칸이나 되는지 확인한다.
 		// 탭은 4개의 공백으로 계산한다.
@@ -324,10 +354,13 @@ RICALE.MarkdownDecoder.prototype = {
 			if(space <= 3) {
 				this.listLevel[0] = space;
 				this.lastListLevel = 1;
-				return this.lastListLevel;
+
+				result.level = this.lastListLevel;
+				return result;
 
 			} else {
-				return this.CODEBLOCK;
+				result.tag = this.CODEBLOCK;
+				return result;
 			}
 
 		// 현재 목록 레벨이 1만 존재하는 상황에서
@@ -337,15 +370,20 @@ RICALE.MarkdownDecoder.prototype = {
 		} else if (this.listLevel.length == 1) {
 			if(space == this.listLevel[0]) {
 				this.lastListLevel = 1;
-				return this.lastListLevel;
+
+				result.level = this.lastListLevel
+				return result;
 
 			} else if(space <= 7) {
 				this.listLevel[1] = space;
 				this.lastListLevel = 2;
-				return this.lastListLevel;
+
+				result.level = this.lastListLevel
+				return result;
 
 			} else {
-				return this.CODEBLOCK;
+				result.tag = this.CODEBLOCK;
+				return result;
 			}
 
 		// 현재 목록 레벨이 2 이상 존재하는 상황에서
@@ -368,12 +406,15 @@ RICALE.MarkdownDecoder.prototype = {
 			var now = this.listLevel.length;
 
 			if(space >= (now + 1) * 4) {
-				return this.CONTINUE;
+				result.tag = this.CONTINUE;
+				return result;
 
 			} else if(space > this.listLevel[now - 1] && space < (now + 1) * 4) {
 				this.listLevel[now] = space;
 				this.lastListLevel = now + 1;
-				return this.lastListLevel;
+
+				result.level = this.lastListLevel
+				return result;
 
 			} else {
 				for(var i = this.lastListLevel - 1; i >= 0 ; i--) {
@@ -383,19 +424,21 @@ RICALE.MarkdownDecoder.prototype = {
 					}
 				}
 
-				return this.CONTINUE;
+				result.tag = this.CONTINUE;
+				return result;
 			}
-
-			console.log(this.lastListLevel + " " + this.listLevel.length)
 
 			for(var i = this.lastListLevel - 1; i > 0 ; i--) {
 				max = i + 1 < this.listLevel.length ? this.listLevel[i + 1] : (this.listLevel.length + 1) * 4
 				if(space >= this.listLevel[i] && space < max) {
-					return i + 1;
+
+					result.level = i + 1;
+					return result;
 				}
 			}
 
-			return this.CONTINUE;
+			result.tag = this.CONTINUE;
+			return result;
 		}
 	},
 
@@ -436,17 +479,55 @@ RICALE.MarkdownDecoder.prototype = {
 	},
 
 	decodeInline: function(string) {
-		for(var i = 0; i < this.regExpInline[this.STRONG].length; i++) {
-			string = string.replace(this.regExpInline[this.STRONG][i], '<strong>$1</strong>');
+		for(var i = 0; i < this.regExpStrong.length; i++) {
+			string = string.replace(this.regExpStrong[i], '<strong>$1</strong>');
 		}
 		
-		for(var i = 0; i < this.regExpInline[this.EM].length; i++) {
-			string = string.replace(this.regExpInline[this.EM][i], '<em>$1</em>');
+		for(var i = 0; i < this.regExpEM.length; i++) {
+			string = string.replace(this.regExpEM[i], '<em>$1</em>');
 		}
 
-		for(var i = 0; i < this.regExpInline[this.CODE].length; i++) {
-			string = string.replace(this.regExpInline[this.CODE][i], '<code>$1</code>');
+		for(var i = 0; i < this.regExpCode.length; i++) {
+			string = string.replace(this.regExpCode[i], '<code>$1</code>');
 		}
+
+		while(true) {
+			var line = string.match(this.regExpImg);
+
+			if(line == null) {
+				break;
+			}
+
+			var id = line[2] == "" ? line[1] : line[2];
+			if(this.referencedId[id] != undefined){
+				string = string.replace(this.regExpImg, '<img src="' + this.referencedId[id] + '" alt="' + line[1] + '">');
+				break;
+			}
+		}
+
+		while(true) {
+			var line = string.match(this.regExpLink);
+
+			if(line == null) {
+				break;
+			}
+			
+			var id = line[2] == "" ? line[1] : line[2];
+			if(this.referencedId[id] != undefined){
+				string = string.replace(this.regExpLink, '<a href="' + this.referencedId[id] + '">' + line[1] + '</a>');
+				break;
+			}
+		}
+
+		string = string.replace(this.regExpImgInline[0], '<img src="$2" alt="$1" title="$3">');
+		string = string.replace(this.regExpImgInline[1], '<img src="$2" alt="$1">');
+
+		string = string.replace(this.regExpLinkInline[0], '<a href="$2" alt="$3">$1</a>');
+		string = string.replace(this.regExpLinkInline[1], '<a href="$2">$1</a>');
+
+		string = string.replace(this.regExpLinkAuto, '<a href="$1">$1</a>');
+
+		string = string.replace(this.regExpBreak, '<br/>');
 
 		return string;
 	},
@@ -701,11 +782,11 @@ RICALE.MarkdownDecoder.prototype = {
 				fBQ = quote;
 			}
 
-			var debug = this.result[i].quote + "    " + this.result[i].tag + "    " + this.result[i].level + "    " + this.result[i].child;
-			console.log(debug);
-
-			console.log(line);
-			string += line;
+//			var debug = this.result[i].quote + "    " + this.result[i].tag + "    " + this.result[i].level + "    " + this.result[i].child;
+//			console.log(debug);
+//
+//			console.log(line);
+//			string += line;
 		}
 
 		this.target.html(string);
