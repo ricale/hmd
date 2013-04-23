@@ -8,10 +8,13 @@ if(typeof(RICALE) == typeof(undefined)) {
 	var RICALE = {};
 }
 
-// 줄 당 번역 결과를 담기 위한 클래스
-// 근데 이거 굳이 클래스로 만들 필요 있나?
+// 용어 정리
+// 해석 : 입력된 마크다운이 어떤 HTML 요소인지 확인
+// 번역 : 해석한 결과에 따라 마크다운을 HTML 형식으로 변환
+
+// 줄 당 해석 결과를 담기 위한 클래스
 RICALE.MarkdownSentence = function() {
-	// 어떤 마크다운 문법이 적용되었는지 (어떤 태그와 매치되었는지) 구별할 용도의 문자열
+	// 어떤 마크다운 문법이 적용되었는지 (어떤 HTML 태그와 매치되는지) 구별할 용도의 문자열
 	this.tag = null;
 	// 마크다운이 적용된 문자열 본문
 	this.child = null;
@@ -28,20 +31,17 @@ RICALE.MarkdownSentence.prototype = {
 
 
 // 마크다운 문법을 HTML 문법으로 번역하는 클래스
-// 인자로 sourceElement(번역할 내용이 작성되어 있는 요소)와
 // targetElement(번역한 결과가 들어갈 요소)를 받는다.
 // - 번역은 translate 메서드를 호출하면 된다.
-// - translate로 sourceElement랑 targetElement를 받는 게 더 낫지 않나?
-RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
-	// 번역할 내용이 들어있는 요소
-	this.source = sourceElement;
+RICALE.MarkdownDecoder = function(targetElement) {
 	// 번역한 결과가 들어갈 요소
 	this.target = targetElement;
 
-	// 줄 별 번역 결과(RICALE.MarkdownSentence)의 배열
+	// 줄 별 해석 결과(RICALE.MarkdownSentence)의 배열
 	this.result = Array();
 
-	this.referencedId = {};
+	// 레퍼런스 스타일의 링크/이미지 기능에서 쓰일 참조 아이디의 링크주소/제목
+	this.refId = {};
 
 	// 목록 요소의 레벨 계산을 위한 배열 (정수)
 	this.listLevel = Array();
@@ -62,23 +62,40 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 	this.UL = "ul";
 	this.OL = "ol";
 
+	// 레퍼런스 스타일의 링크/이미지 기능에서 쓰일 아이디가 쓰인 줄을 구분하기 위한 상수
 	this.REFERENCED = "referencedId"
 
+
+	// # 블록 요소 마크다운의 정규 표현식들
+
+
+	// 주의할 점
+	// 1. HR보다 UL을 먼저 체크하면 몇몇 상황에서 HR이 UL로 처리될 수 있다.
+	// 2. HR보다 CODEBLOCK을 먼저 체크하면 몇몇 상황에서 HR이 CODEBLOCK으로 처리될 수 있다.
 	this.regExp = {};
 	this.regExp[this.HR] = /(^[ ]{0,3}[-]+[ ]*[-]+[ ]*[-]+[ ]*$)|(^[ ]{0,3}[_]+[ ]*[_]+[ ]*[_]+[ ]*$)|(^[ ]{0,3}[\*]+[ ]*[\*]+[ ]*[\*]+[ ]*$)/;
 	this.regExp[this.UL] = /^([\s]*)[\*+-][ ]+(.*)$/;
 	this.regExp[this.OL] = /^([\s]*)[\d]+\.[ ]+(.*)$/;
 	this.regExp[this.BLANK] = /(^[\s]*$)|(^$)/;
 	this.regExp[this.CODEBLOCK]  = /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/;
-	this.regExp[this.REFERENCED] = /^\s*\[(.+)\]:\s*([^\s]+)$/;
-
+	this.regExp[this.REFERENCED] = [
+		/^\s*\[(.+)\]:\s*<([^\s]+)>\s*(['"(](.*)['"(])?$/,
+		/^\s*\[(.+)\]:\s*([^\s]+)\s*(['"(](.*)['"(])?$/
+	];
 	this.regExpHeading = /^(#{1,6}) (.*)(#*)$/;
+	// 인용과 매핑되는 마크다운 정규 표현식
+	// 단 인용의 경우에 한해서,
+	// 한 번 체크한 것으로 인용의 중첩 레벨을 모두 알아내지 못할 경우가 있다.
+	// 따라서 match가 되지 않을 때까지 확인하는 것이 확실하다.
+	// 분명 한 번에 체크하고 중첩 레벨까지 확인할 수 있는 정규표현식이 존재할 것이다.
+	// 후에 수정한다.
 	this.regExpBlockquote = /^(>+)[ ]([ ]*.*)$/;
-
-	// CONTINUE 를 구분하기 위한 정규 표현식
 	this.regExpContinuedListBelowBlank = /^[\s]{1,7}(.*)/;
 
-	this.regExpInline = {};
+
+	// # 인라인 요소 마크다운의 정규 표현식들
+
+
 	this.regExpStrong = [
 		/\*\*([^\s]+.*[^\s]+)\*\*/g,
 		/__([^\s]+.*[^\s]+)__/g
@@ -91,26 +108,16 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 		/`{2}(.+)`{2}/g,
 		/`{1}(.+)`{1}/g
 	];
-
 	this.regExpImg = /!\[(.+)\]\s*\[(.*)\]/;
 	this.regExpLink = /\[(.+)\]\s*\[(.*)\]/;
-
-	// 한 문장으로 표현될 수 있지만,
-	// 상황에 따라 번역되는 결과가 미묘하게 다르기 때문에 나눈다.
-	// 한 문장으로 표현하면 - /!\[(.+)\]\s*\(([^\s]+)( "(.+)")?\)/g
 	this.regExpImgInline = [
 		/!\[(.+)\]\s*\(([^\s]+) "(.*)"\)/g,
 		/!\[(.+)\]\s*\(([^\s]+)\)/g
 	];
-
-	// 한 문장으로 표현될 수 있지만,
-	// 상황에 따라 번역되는 결과가 미묘하게 다르기 때문에 나눈다.
-	// 한 문장으로 표현하면 - /\[(.+)\]\s*\(([^\s]+)( "(.+)")?\)/g
 	this.regExpLinkInline = [
 		/\[(.+)\]\s*\(([^\s]+) "(.*)"\)/g,
 		/\[(.+)\]\s*\(([^\s]+)\)/g
 	];
-
 	this.regExpLinkAuto = /<(http[s]?:\/\/.+)>/g;
 	this.regExpBreak = /(  )$/;
 }
@@ -118,15 +125,17 @@ RICALE.MarkdownDecoder = function(sourceElement, targetElement) {
 RICALE.MarkdownDecoder.prototype = {
 
 	// 번역한다.
-	translate:function() {
+	translate:function(source) {
 		// 타겟 요소의 문자열을 줄 단위로 끊어 배열로 저장한다.
-		var array = this.source.text().split(/\n/);
+		var array = source.split(/\n/);
 
 		// 한 줄 한 줄이 어떤 마크다운에 해당하는 지 체크한다.
 		for(var i = 0, now = 0; i < array.length; i++) {
 
 			this.result[now] = this.match(array[i], now);
 
+			// 참조 스타일의 링크/이미지 기능을 위한 참조 문자열이었다면
+			// 실제로 보이는 문자열이 아니므로 지나친다.
 			if(this.result[now].tag == this.REFERENCED) {
 				continue;
 			}
@@ -143,7 +152,7 @@ RICALE.MarkdownDecoder.prototype = {
 			now++;
 		}
 
-		// 줄 단위로 번역한된 것을 통합해서 해석
+		// 줄 단위로 해석한 것을 통합해서 번역한다.
 		this.decode();
 	},
 
@@ -219,13 +228,24 @@ RICALE.MarkdownDecoder.prototype = {
 			return result;
 		}
 
-		line = string.match(this.regExp[this.REFERENCED]);
+		// 문자열(string)이 참조 문자열인지 확인
+		// 스타일이 두 가지이기 때문에 두 가지 다 확인
+		line = string.match(this.regExp[this.REFERENCED][0]);
+		if(line == null) {
+			line = string.match(this.regExp[this.REFERENCED][1]);
+		}
+
 		if(line != null) {
 			result.tag = this.REFERENCED;
-			this.referencedId[line[1]] = line[2];
+			this.refId[line[1]] = {
+				link : line[2],
+				title : line[4]
+			};
+			console.log(this.refId);
 			return result;
 		}
 
+		// 블록 요소에서 이어지는 문단인지 확인
 		var isContinued = this.matchContinuedList(string, now);
 		if(isContinued != false) {
 			return isContinued;
@@ -239,6 +259,12 @@ RICALE.MarkdownDecoder.prototype = {
 
 	}, // end function match
 
+	// UL/OL의 정규 표현식과 일치한 결과(line)가
+	// a. 진짜 UL/OL인지,
+	// b. UL/OL과 비슷한 형식을 취하고 있는 CODEBLOCK인지
+	// 확인한다.
+	// a의 경우 정확히 무엇인지(UL/OL/CONTINUE) 결과 값을 반환하고
+	// b의 경우 false를 반환한다.
 	isThisReallyListElement: function(tag, line, result) {
 		var r = this.getListLevel(line[1]);
 
@@ -253,6 +279,8 @@ RICALE.MarkdownDecoder.prototype = {
 		}
 	},
 
+	// CODEBLOCK의 정규 표현식과 일치한 결과(line)를
+	// 사용하기 적절한 결과 값으로 변환해 반환한다.
 	getCodeblockResult: function(line, result) {
 		result.tag   = this.CODEBLOCK;
 		result.child = line[2];
@@ -324,8 +352,7 @@ RICALE.MarkdownDecoder.prototype = {
 	},
 
 	// 목록 요소의 레벨을 이 줄의 들여쓰기(blank)를 통해 얻는다.
-	// this.match에서밖에 쓰이지 않기 때문에 따로 함수로 작성할 필요는 없지만
-	// 의미론적으로 분리하기 위해 별도의 함수를 만든다.
+	// 목록 요소와 유사한 형태의 CODEBLOCK이라면 this.CODEBLOCK을 반환한다.
 	getListLevel: function(blank) {
 		// 이 줄의 들여쓰기가 몇 탭(tab) 몇 공백(space)인지 확인한다.
 		var indent = blank.match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g),
@@ -478,6 +505,8 @@ RICALE.MarkdownDecoder.prototype = {
 		return index < this.result.length - 1 ? this.result[index + 1] : null;
 	},
 
+	// 블록 요소에 대한 해석이 끝난 줄의 본문(string)의 인라인 요소들을 찾아 바로 번역한다.
+	// 아무런 인라인 요소도 포함하고 있지 않다면 인자를 그대로 반환한다.
 	decodeInline: function(string) {
 		for(var i = 0; i < this.regExpStrong.length; i++) {
 			string = string.replace(this.regExpStrong[i], '<strong>$1</strong>');
@@ -499,9 +528,15 @@ RICALE.MarkdownDecoder.prototype = {
 			}
 
 			var id = line[2] == "" ? line[1] : line[2];
-			if(this.referencedId[id] != undefined){
-				string = string.replace(this.regExpImg, '<img src="' + this.referencedId[id] + '" alt="' + line[1] + '">');
+			if(this.refId[id] == undefined){
 				break;
+			}
+
+			if(this.refId[id]['title'] != null) {
+				string = string.replace(this.regExpImg, '<img src="' + this.refId[id]['link'] + '" alt="' + line[1]
+					                    + '" title="' + this.refId[id]['title'] + '">');
+			} else {
+				string = string.replace(this.regExpImg, '<img src="' + this.refId[id]['link'] + '" alt="' + line[1] + '">');
 			}
 		}
 
@@ -513,9 +548,15 @@ RICALE.MarkdownDecoder.prototype = {
 			}
 			
 			var id = line[2] == "" ? line[1] : line[2];
-			if(this.referencedId[id] != undefined){
-				string = string.replace(this.regExpLink, '<a href="' + this.referencedId[id] + '">' + line[1] + '</a>');
+			if(this.refId[id] == undefined) {
 				break;
+			}
+
+			if(this.refId[id]['title'] != null) {
+				string = string.replace(this.regExpLink, '<a href="' + this.refId[id]['link'] + '" title="' + this.refId[id]['title'] + '">'
+				                        + line[1] + '</a>');
+			} else {
+				string = string.replace(this.regExpLink, '<a href="' + this.refId[id]['link'] + '">' + line[1] + '</a>');
 			}
 		}
 
@@ -532,9 +573,9 @@ RICALE.MarkdownDecoder.prototype = {
 		return string;
 	},
 
-	// 분석한 줄들을 토대로 전체 글을 번역한다.
+	// 해석한 줄들을 전체적으로 확인해 번역한다.
 	// this.translate에서 바로 하지 않는 이유는
-	// 전후 줄의 상태에 따라 분석이 달라질 수 있기 때문이다.
+	// 전후 줄의 상태에 따라 번역이 달라질 수 있기 때문이다.
 	decode: function() {
 		var string = "",
 			// ul이 이어지던 상태였는가. 상태라면 레벨은 몇이었는가.
@@ -786,19 +827,19 @@ RICALE.MarkdownDecoder.prototype = {
 //			console.log(debug);
 //
 //			console.log(line);
-//			string += line;
+			string += line;
 		}
 
 		this.target.html(string);
 	}
 } // RICALE.MarkdownDecoder.prototype
 
-
-var decoder;
 // 사용 예제 코드
+/*
 $(document).ready(function() {
-	decoder = new RICALE.MarkdownDecoder($('#source'), $('#target'));
+	var decoder = new RICALE.MarkdownDecoder($('#target'));
 	$('#source').click(function() {
-		decoder.translate();
+		decoder.translate($('#source').text());
 	});
 });
+*/
