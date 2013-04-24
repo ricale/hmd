@@ -63,7 +63,7 @@ RICALE.MarkdownDecoder = function(targetElement) {
 	this.OL = "ol";
 
 	// 레퍼런스 스타일의 링크/이미지 기능에서 쓰일 아이디가 쓰인 줄을 구분하기 위한 상수
-	this.REFERENCED = "referencedId"
+	this.REFERENCED = "referencedId";
 
 
 	// # 블록 요소 마크다운의 정규 표현식들
@@ -267,11 +267,13 @@ RICALE.MarkdownDecoder.prototype = {
 	// b의 경우 false를 반환한다.
 	isThisReallyListElement: function(tag, line, result) {
 		var r = this.getListLevel(line[1]);
+		console.log(r);
 
 		if(r.tag != this.CODEBLOCK) {
 			result.tag   = r.tag != null ? r.tag : tag;
 			result.level = r.level;
 			result.child = line[2];
+			console.log(line[0]);
 			return result;
 
 		} else {
@@ -356,7 +358,7 @@ RICALE.MarkdownDecoder.prototype = {
 	getListLevel: function(blank) {
 		// 이 줄의 들여쓰기가 몇 탭(tab) 몇 공백(space)인지 확인한다.
 		var indent = blank.match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g),
-		    space = 0
+		    space = 0,
 		    result = {
 		    	tag   : null,
 		    	level : null
@@ -374,15 +376,16 @@ RICALE.MarkdownDecoder.prototype = {
 			}
 		}
 
+		console.log("space length " + space);
+
 		// 현재 목록 레벨이 이어지지 않던 상황에서
 		// a. 공백이 3 이하라면 목록의 레벨은 1이 된다.
 		// b. 공백이 3 초과라면 이 줄은 목록 요소가 아니라 코드블록 요소이다.
 		if(this.listLevel.length == 0) {
 			if(space <= 3) {
 				this.listLevel[0] = space;
-				this.lastListLevel = 1;
 
-				result.level = this.lastListLevel;
+				result.level = 1;
 				return result;
 
 			} else {
@@ -396,16 +399,13 @@ RICALE.MarkdownDecoder.prototype = {
 		// c. 공백이 7 초과라면 이 줄은 목록 요소가 아니라 코드블록 요소이다.
 		} else if (this.listLevel.length == 1) {
 			if(space == this.listLevel[0]) {
-				this.lastListLevel = 1;
-
-				result.level = this.lastListLevel
+				result.level = 1;
 				return result;
 
 			} else if(space <= 7) {
 				this.listLevel[1] = space;
-				this.lastListLevel = 2;
 
-				result.level = this.lastListLevel
+				result.level = 2;
 				return result;
 
 			} else {
@@ -415,57 +415,40 @@ RICALE.MarkdownDecoder.prototype = {
 
 		// 현재 목록 레벨이 2 이상 존재하는 상황에서
 		// a. 공백이 일정 수치 이상이면 이 줄은 목록 요소가 아니라 CONTINUE 요소가 된다.
-		// b. 공백이 바로 전 레벨보다 크고 일정 수치 미만이면 이 줄은 이전 레벨 + 1이다.
-		// c. 공백이 전 레벨들 중 어떤 하나보다 수치가 작거나 같으면 해당 레벨이다.
-
-		/* 목록이 두 단계 점프할만한 공백이 나왔을 때의 처리합시다.
-
-		예를 들어
-		목록 레벨
-		1
-		2
-		3
-		4
-		5
-		3
-		5 <- 이런 식의 상황 */
+		// b. 공백이 바로 전 레벨보다 크면 이 줄은 이전 레벨 + 1이다.
+		// c. 공백이 바로 전 레벨과 같으면 이 줄은 이전 레벨이 된다.
+		// d. 공백이 전 레벨들 중 어떤 하나보다 수치가 크거나 같으면 해당 레벨이다.
 		} else {
 			var now = this.listLevel.length;
+			console.log("list level length " + now);
 
 			if(space >= (now + 1) * 4) {
 				result.tag = this.CONTINUE;
 				return result;
 
-			} else if(space > this.listLevel[now - 1] && space < (now + 1) * 4) {
+			} else if(space > this.listLevel[now - 1]) {
 				this.listLevel[now] = space;
-				this.lastListLevel = now + 1;
 
-				result.level = this.lastListLevel
+				result.level = now + 1;
+				return result;
+
+			} else if(space == this.listLevel[now - 1]) {
+				result.level = now;
 				return result;
 
 			} else {
-				for(var i = this.lastListLevel - 1; i >= 0 ; i--) {
-					max = i + 1 < this.listLevel.length ? this.listLevel[i + 1] : (this.listLevel.length + 1) * 4
-					if(space >= this.listLevel[i] && space < max) {
-						return i + 1;
+				for(var i = now - 2; i >= 0 ; i--) {
+					if(space >= this.listLevel[i]) {
+						this.listLevel = this.listLevel.slice(0, i + 1);
+
+						result.level = i + 1;
+						return result;
 					}
 				}
 
 				result.tag = this.CONTINUE;
 				return result;
 			}
-
-			for(var i = this.lastListLevel - 1; i > 0 ; i--) {
-				max = i + 1 < this.listLevel.length ? this.listLevel[i + 1] : (this.listLevel.length + 1) * 4
-				if(space >= this.listLevel[i] && space < max) {
-
-					result.level = i + 1;
-					return result;
-				}
-			}
-
-			result.tag = this.CONTINUE;
-			return result;
 		}
 	},
 
@@ -823,10 +806,6 @@ RICALE.MarkdownDecoder.prototype = {
 				fBQ = quote;
 			}
 
-//			var debug = this.result[i].quote + "    " + this.result[i].tag + "    " + this.result[i].level + "    " + this.result[i].child;
-//			console.log(debug);
-//
-//			console.log(line);
 			string += line;
 		}
 
@@ -837,9 +816,9 @@ RICALE.MarkdownDecoder.prototype = {
 // 사용 예제 코드
 /*
 $(document).ready(function() {
-	var decoder = new RICALE.MarkdownDecoder($('#target'));
+	RICALE.decoder = new RICALE.MarkdownDecoder($('#target'));
 	$('#source').click(function() {
-		decoder.translate($('#source').text());
+		RICALE.decoder.translate($('#source').text());
 	});
 });
 */
