@@ -1,3 +1,9 @@
+// project handmade markdown decoder (hmd)
+// version 0.1
+// written by ricale
+// ricale@hanmail.net or kim.kangseong@gmail.com
+
+
 if(typeof(RICALE) == typeof(undefined)) {
 	/**
 	 * @namespace 네임스페이스
@@ -241,7 +247,6 @@ RICALE.MarkdownDecoder.prototype = {
 				link : line[2],
 				title : line[4]
 			};
-			console.log(this.refId);
 			return result;
 		}
 
@@ -267,13 +272,11 @@ RICALE.MarkdownDecoder.prototype = {
 	// b의 경우 false를 반환한다.
 	isThisReallyListElement: function(tag, line, result) {
 		var r = this.getListLevel(line[1]);
-		console.log(r);
 
 		if(r.tag != this.CODEBLOCK) {
 			result.tag   = r.tag != null ? r.tag : tag;
 			result.level = r.level;
 			result.child = line[2];
-			console.log(line[0]);
 			return result;
 
 		} else {
@@ -376,8 +379,6 @@ RICALE.MarkdownDecoder.prototype = {
 			}
 		}
 
-		console.log("space length " + space);
-
 		// 현재 목록 레벨이 이어지지 않던 상황에서
 		// a. 공백이 3 이하라면 목록의 레벨은 1이 된다.
 		// b. 공백이 3 초과라면 이 줄은 목록 요소가 아니라 코드블록 요소이다.
@@ -420,7 +421,6 @@ RICALE.MarkdownDecoder.prototype = {
 		// d. 공백이 전 레벨들 중 어떤 하나보다 수치가 크거나 같으면 해당 레벨이다.
 		} else {
 			var now = this.listLevel.length;
-			console.log("list level length " + now);
 
 			if(space >= (now + 1) * 4) {
 				result.tag = this.CONTINUE;
