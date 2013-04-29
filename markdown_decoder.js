@@ -132,6 +132,9 @@ RICALE.MarkdownDecoder.prototype = {
 
 	// 번역한다.
 	translate:function(source) {
+		// 결과가 담길 배열 초기화
+		this.result = Array();
+
 		// 타겟 요소의 문자열을 줄 단위로 끊어 배열로 저장한다.
 		var array = source.split(/\n/);
 
@@ -193,7 +196,7 @@ RICALE.MarkdownDecoder.prototype = {
 		// 문자열(string)이 OL인지 확인
 		line = string.match(this.regExp[this.OL]);
 		if(line != null) {
-			var r = this.isThisReallyListElement(this.UL, line, result);
+			var r = this.isThisReallyListElement(this.OL, line, result);
 			if(r !== false) {
 				return r;
 			} else {
@@ -426,13 +429,13 @@ RICALE.MarkdownDecoder.prototype = {
 				result.tag = this.CONTINUE;
 				return result;
 
-			} else if(space > this.listLevel[now - 1]) {
+			} else if(space > this.listLevel[now - 1] && space > (now - 1) * 4) {
 				this.listLevel[now] = space;
 
 				result.level = now + 1;
 				return result;
 
-			} else if(space == this.listLevel[now - 1]) {
+			} else if(space >= this.listLevel[now - 1]) {
 				result.level = now;
 				return result;
 
