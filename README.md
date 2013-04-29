@@ -31,23 +31,23 @@ handmade markdown decoder (hmd)는 마크다운 문법으로 작성된 문자열
 ## hmd 마크다운 문법
 
 1. 블록 요소 Block Element
-   1. 문단 p
-   2. 제목 h1 h2 h3 h4 h5 h6
-   3. 인용 blockquote
-   4. 목록
-      1. 비순서적 목록 ul
-      2. 순서적 목록 ol
-      3. 목록 공통
-   5. 코드 블록 pre & code
-   6. 수평선 hr
+    1. 문단 p
+    2. 제목 h1 h2 h3 h4 h5 h6
+    3. 인용 blockquote
+    4. 목록
+        1. 비순서적 목록 ul
+        2. 순서적 목록 ol
+        3. 목록 공통
+    5. 코드 블록 pre & code
+    6. 수평선 hr
 2. 인라인 요소 Inline Element
-   1. 링크 a
-      1. 인라인 스타일
-      2. 레퍼런스 스타일
-      3. 자동 링크
-   2. 강조 em, strong
-   3. 코드 code
-   4. 이미지 img
+    1. 링크 a
+        1. 인라인 스타일
+        2. 레퍼런스 스타일
+        3. 자동 링크
+    2. 강조 em, strong
+    3. 코드 code
+    4. 이미지 img
 3. 기타
    1. 전 줄과 관련된 규칙
 
