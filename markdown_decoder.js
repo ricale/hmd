@@ -85,8 +85,8 @@ RICALE.MarkdownDecoder = function(targetElement) {
 	this.regExp[this.BLANK] = /(^[\s]*$)|(^$)/;
 	this.regExp[this.CODEBLOCK]  = /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/;
 	this.regExp[this.REFERENCED] = [
-		/^\s*\[(.+)\]:\s*<([^\s]+)>\s*(['"(](.*)["'(])?$/,
-		/^\s*\[(.+)\]:\s*([^\s]+)\s*(['"(](.*)["'(])?$/
+		/^\s*\[(\[\]+)\]:\s*<([^\s<>]+)>\s*(['"(](.*)["'(])?$/,
+		/^\s*\[(\[\]+)\]:\s*([^\s]+)\s*(['"(](.*)["'(])?$/
 	];
 	this.regExpHeading = /^(#{1,6}) (.*)(#*)$/;
 	this.regExpH1Underlined = /^[=]+$/;
@@ -114,12 +114,12 @@ RICALE.MarkdownDecoder = function(targetElement) {
 	this.regExpImg = /!\[(.+)\]\s*\[(.*)\]/;
 	this.regExpLink = /\[(.+)\]\s*\[(.*)\]/;
 	this.regExpImgInline = [
-		/!\[(.+)\]\s*\(([^\s]+) "(.*)"\)/g,
-		/!\[(.+)\]\s*\(([^\s]+)\)/g
+		/!\[([^\[\]]+)\]\s*\(([^\s\(\)]+) "(.*)"\)/g,
+		/!\[([^\[\]]+)\]\s*\(([^\s\(\)]+)\)/g
 	];
 	this.regExpLinkInline = [
-		/\[(.+)\]\s*\(([^\s]+) "(.*)"\)/g,
-		/\[(.+)\]\s*\(([^\s]+)\)/g
+		/\[([^\[\]]+)\]\s*\(([^\s\(\)]+) "(.*)"\)/g,
+		/\[([^\[\]]+)\]\s*\(([^\s\(\)]+)\)/g
 	];
 	this.regExpLinkAuto = /<(http[s]?:\/\/.+)>/g;
 	this.regExpBreak = /(  )$/;
