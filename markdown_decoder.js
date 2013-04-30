@@ -85,8 +85,8 @@ RICALE.MarkdownDecoder = function(targetElement) {
 	this.regExp[this.BLANK] = /(^[\s]*$)|(^$)/;
 	this.regExp[this.CODEBLOCK]  = /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/;
 	this.regExp[this.REFERENCED] = [
-		/^\s*\[(\[\]+)\]:\s*<([^\s<>]+)>\s*(['"(](.*)["'(])?$/,
-		/^\s*\[(\[\]+)\]:\s*([^\s]+)\s*(['"(](.*)["'(])?$/
+		/^\s*\[([^\[\]]+)\]:\s*<([^\s<>]+)>\s*(['"(](.*)["'(])?$/,
+		/^\s*\[([^\[\]]+)\]:\s*([^\s]+)\s*(['"(](.*)["'(])?$/
 	];
 	this.regExpHeading = /^(#{1,6}) (.*)(#*)$/;
 	this.regExpH1Underlined = /^[=]+$/;
