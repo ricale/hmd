@@ -3,14 +3,12 @@
 // written by ricale
 // ricale@hanmail.net or kim.kangseong@gmail.com
 
+// _주의! 현재 작성된 주석들은 명확하지 않은 부분이 많을 수도 있습니다._
+// 특히 코드를 그대로 한글로 옮겨놓았을 뿐이라서 이해에 도움이 되지 않는 부분도 있습니다.
+// 차차 정리하고 사용하는 단어들도 일관성 있게 정리할 예정입니다.
 
 if(typeof(RICALE) == typeof(undefined)) {
-	/**
-	 * @namespace 네임스페이스
-	 * @auther ricale
- 	 * @version 1
- 	 * @description 다른 사람의 구현과의 충돌을 피하기 위한 최상위 네임스페이스
-	 */
+	// 다른 사람과의 이름 충돌을 피하기 위한 최상위 네임스페이스
 	var RICALE = {};
 }
 
@@ -52,6 +50,9 @@ RICALE.MarkdownDecoder = function(targetElement) {
 	// 목록 요소의 레벨 계산을 위한 (정수) 배열
 	this.listLevel = Array();
 
+	// 번역 시 중첩된 목록 요소의 (OL/UL) 순서를 저장하기 위한 배열
+	this.listElements = Array();
+
 	// 어떤 마크다운 문법이 적용되었는지 구별할 문자열들 (키값)
 	this.P = "p";
 	this.CONTINUE = "continue"; //< 인용/목록에서 p가 길게 쓰일 때를 구분하기 위한 상수
@@ -88,9 +89,11 @@ RICALE.MarkdownDecoder = function(targetElement) {
 		/^\s*\[(.+)\]:\s*([^\s]+)\s*(['"(](.*)["'(])?$/
 	];
 	this.regExpHeading = /^(#{1,6}) (.*)(#*)$/;
+	this.regExpH1Underlined = /^[=]+$/;
+	this.regExpH2Underlined = /^[-]+$/;
 	// 인용과 매핑되는 마크다운 정규 표현식
 	this.regExpBlockquote = /^[ ]{0,3}(>+)[ ]([ ]*.*)$/;
-	this.regExpContinuedList = /(^[\s]{1,8})(.*)/;
+	this.regExpContinuedList = /(^[\s]{1,8})([\s]*)(.*)/;
 
 
 	// # 인라인 요소 마크다운의 정규 표현식들
@@ -140,7 +143,7 @@ RICALE.MarkdownDecoder.prototype = {
 
 			// 참조 스타일의 링크/이미지 기능을 위한 참조 문자열이었다면
 			// 실제로 보이는 문자열이 아니므로 지나친다.
-			if(result.tag == this.REFERENCED) {
+			if(result == null) {
 				continue;
 			}
 
@@ -169,8 +172,20 @@ RICALE.MarkdownDecoder.prototype = {
 		var result = this.matchBlockquotes(string),
 		    string = result.child;
 
+		var line = string.match(this.regExpH1Underlined);
+		if(line != null && now != 0 && this.result[now - 1].tag == this.P) {
+			this.result[now - 1].tag = this.H1;
+			return null;
+		}
+
+		line = string.match(this.regExpH2Underlined);
+		if(line != null && now != 0 && this.result[now - 1].tag == this.P) {
+			this.result[now - 1].tag = this.H2;
+			return null;
+		}
+
 		// 문자열(string)이 HR인지 확인
-		var line = string.match(this.regExp[this.HR]);
+		line = string.match(this.regExp[this.HR]);
 		if(line != null) {
 			result.tag   = this.HR;
 			result.child = "";
@@ -209,6 +224,12 @@ RICALE.MarkdownDecoder.prototype = {
 			return result;
 		}
 
+		// 블록 요소에서 이어지는 문단인지 확인
+		var isContinued = this.matchContinuedList(string, now);
+		if(isContinued != false) {
+			return isContinued;
+		}
+
 		// 문자열(string)이 헤딩(h1, h2, h3, h4, h5, h6)인지 확인
 		line = string.match(this.regExpHeading);
 		if(line != null) {
@@ -234,18 +255,11 @@ RICALE.MarkdownDecoder.prototype = {
 			line = string.match(this.regExp[this.REFERENCED][1]);
 		}
 		if(line != null) {
-			result.tag = this.REFERENCED;
 			this.refId[line[1]] = {
 				link : line[2],
 				title : line[4]
 			};
-			return result;
-		}
-
-		// 블록 요소에서 이어지는 문단인지 확인
-		var isContinued = this.matchContinuedList(string, now);
-		if(isContinued != false) {
-			return isContinued;
+			return null;
 		}
 
 		// 문자열(string)이 코드블록인지 확인
@@ -266,7 +280,7 @@ RICALE.MarkdownDecoder.prototype = {
 	// a. 진짜 UL/OL인지,
 	// b. UL/OL과 비슷한 형식을 취하고 있는 CODEBLOCK인지
 	// 확인한다.
-	// a의 경우 정확히 무엇인지(UL/OL/CONTINUE) 결과 값을 반환하고
+	// a의 경우 정확히 무엇인지(UL/OL) 결과 값을 반환하고
 	// b의 경우 false를 반환한다.
 	isThisReallyListElement: function(tag, line, result) {
 		var r = this.getListLevel(line[1]);
@@ -290,7 +304,7 @@ RICALE.MarkdownDecoder.prototype = {
 		return result;
 	},
 
-	// 문자열(string)이 목록 요소로부터 늘어진 문단 요소 (CONTINUE) 인지 확인한다.
+	// 문자열(string)이 목록 요소로부터 늘어진 문단 요소인지 확인한다.
 	// this.match에서밖에 쓰이지 않기 때문에 따로 함수로 작성할 필요는 없지만
 	// 의미론적으로 분리하기 위해 별도의 함수를 만든다.
 	// now는 이 문자열의 줄번호이다.
@@ -300,13 +314,14 @@ RICALE.MarkdownDecoder.prototype = {
 		// 빈 줄을 제외하고, 바로 윗 줄에 대한 정보를 얻는다.
 		var above = this.aboveExceptBlank(now);
 		// 빈 줄을 포함한 바로 윗 줄에 대한 정보를 얻는다.
-		var before = this.beforeLine(now);
-		// CONTINUE 요소로써 문법적으로 적절한지 체크한다.
+		var prev = this.previousLine(now);
+		// 목록 요소 내부의 문단 요소로써 문법적으로 적절한지 체크한다.
 		var line = string.match(this.regExpContinuedList)
 
-		// 빈 줄을 포함한 윗 줄이 존재하는 가운데,
-		// 그 윗줄이 목록 혹은 CONTINUE 요소라면 이 줄 또한 CONTINUE 요소이다.
-		if(before != null && before.level != 0) {
+		// 1. 빈 줄을 포함한 윗 줄이 존재하는 가운데,
+		// 2. 그 윗줄의 목록 요소 레벨이 0이 아니라면(=목록 요소 내부의 문단요소라면)
+		// 이 줄 또한 목로 요소 내부의 문단 요소이다.
+		if(prev != null && prev.level != 0) {
 
 			result.tag = this.P;
 			result.child = string;
@@ -314,31 +329,39 @@ RICALE.MarkdownDecoder.prototype = {
 
 			return result;
 
-		// 
+		// 1. 빈 줄을 제외한 윗 줄이 존재하고,
+		// 2. 그 줄의 목록 요소 레벨이 0이 아니고
+		// 3. 목록 내부의 문단 요소로써 문법도 일치한다면
+		// 이것은
+		//   a. 목록 요소 내부의 코드 블록이거나
+		//   b. 목록 요소 내부의 문단 요소이다.
 		} else if(above != null && above.level != 0 && line !== null) {
 
+			// 위 주석에서의 a인 경우.
+			// 판단 기준은 들여쓰기.
 		   	if(this.getIndentLevel(line[1]) == 8) {
-		   		result.tag = this.CODEBLOCK;
-				result.child = line[2];
-				result.level = this.listLevel.length;
+		   		if((this.listLevel.length - 1) * 4 <= this.getIndentLevel(line[2])) {
+		   			result.tag = this.CODEBLOCK;
+					result.child = line[2].slice((this.listLevel.length - 1) * 4) + line[3];
+					result.level = this.listLevel.length;
 
-		   	} else {
-		   		result.tag = this.P;
-				result.child = line[2];
-				result.level = this.listLevel.length;
-		    }
+					return result;
+		   		}
+		   	}
+
+	   		result = this.matchBlockquotes(line[3]);
+	   		result.tag = this.P;
+			result.level = this.listLevel.length;
 
 			return result;
 		}
 
-		// 위의 어떠한 사항에도 해당하지 않는다면 이 줄은 CONTINUE 요소가 아니다.
+		// 위의 어떠한 사항에도 해당하지 않는다면 이 줄은 목록 요소 내부의 블록 요소가 아니다.
 		return false;
 	},
 
 	// 이 줄(string)이 인용 요소에 포함된 줄인지,
 	// 포함되어 있다면 인용 요소가 몇 번이나 중첩되어 있는지 체크한다.
-	// this.match에서밖에 쓰이지 않기 때문에 따로 함수로 작성할 필요는 없지만
-	// 의미론적으로 분리하기 위해 별도의 함수를 만든다.
 	matchBlockquotes: function(string) {
 		var result = new RICALE.MarkdownSentence();
 
@@ -380,7 +403,7 @@ RICALE.MarkdownDecoder.prototype = {
 	},
 
 	// 목록 요소의 레벨을 이 줄의 들여쓰기(blank)를 통해 얻는다.
-	// 목록 요소와 유사한 형태의 CODEBLOCK이라면 this.CODEBLOCK을 반환한다.
+	// 목록 요소와 유사한 형태의 CODEBLOCK이라면 해당 결과를 반환한다.
 	getListLevel: function(blank) {
 		// 이 줄의 들여쓰기가 몇 탭(tab) 몇 공백(space)인지 확인한다.
 		var space = this.getIndentLevel(blank),
@@ -425,15 +448,17 @@ RICALE.MarkdownDecoder.prototype = {
 			}
 
 		// 현재 목록 레벨이 2 이상 존재하는 상황에서
-		// a. 공백이 일정 수치 이상이면 이 줄은 목록 요소가 아니라 CONTINUE 요소가 된다.
-		// b. 공백이 바로 전 레벨보다 크면 이 줄은 이전 레벨 + 1이다.
-		// c. 공백이 바로 전 레벨과 같으면 이 줄은 이전 레벨이 된다.
-		// d. 공백이 전 레벨들 중 어떤 하나보다 수치가 크거나 같으면 해당 레벨이다.
+		// a. 공백이 일정 수치 이상이면 이 줄은 목록 요소가 아니라 목록 요소 내부의 문단 요소가 된다.
+		// b. a에 해당하지 않고, 공백이 바로 전 레벨보다 크고 일정 수치보다 크면 이 줄은 이전 레벨 + 1이다.
+		// c. a,b,에 해당하지 않고, 공백이 바로 전 레벨과 같거나 크면 이 줄은 이전 레벨이 된다.
+		// d. a,b,c,에 해당하지 않고, 공백이 전 레벨들 중 어떤 하나보다 수치가 크거나 같으면 해당 레벨이다.
+		// e. 이도 저도 아니면 이 줄은 목록 요소가 아니라 목록 요소 내부의 문단 요소가 된다.
 		} else {
 			var now = this.listLevel.length;
 
 			if(space >= (now + 1) * 4) {
-				result.tag = this.CONTINUE;
+				result.tag = this.P;
+				result.level = now;
 				return result;
 
 			} else if(space > this.listLevel[now - 1] && space > (now - 1) * 4) {
@@ -456,7 +481,8 @@ RICALE.MarkdownDecoder.prototype = {
 					}
 				}
 
-				result.tag = this.CONTINUE;
+				result.tag = this.P;
+				result.level = now;
 				return result;
 			}
 		}
@@ -476,7 +502,7 @@ RICALE.MarkdownDecoder.prototype = {
 
 	// 빈 줄을 포함한 바로 윗줄을 얻는다.
 	// 존재하지 않으면 null을 반환한다.
-	beforeLine: function(index) {
+	previousLine: function(index) {
 		return index > 1 ? this.result[index - 1] : null;
 	},
 
@@ -498,21 +524,50 @@ RICALE.MarkdownDecoder.prototype = {
 		return index < this.result.length - 1 ? this.result[index + 1] : null;
 	},
 
+	idxBelowThisList: function(index) {
+		for(var i = index + 1; i < this.result.length; i++) {
+			if(this.result[i].level == 0) {
+				return i;
+			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
+				return null;
+			}
+		}
+
+		return null;
+	},
+
+	idxAboveThisList: function(index) {
+		for(var i = index - 1; i >= 0; i--) {
+			if(this.result[i].level == 0) {
+				return i;
+			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
+				return null;
+			}
+		}
+
+		return null;
+	},
+
 	// 블록 요소에 대한 해석이 끝난 줄의 본문(string)의 인라인 요소들을 찾아 바로 번역한다.
 	// 아무런 인라인 요소도 포함하고 있지 않다면 인자를 그대로 반환한다.
 	decodeInline: function(string) {
+		// 문자열 내에 strong 요소가 있는지 확인하고 번역
 		for(var i = 0; i < this.regExpStrong.length; i++) {
 			string = string.replace(this.regExpStrong[i], '<strong>$1</strong>');
 		}
 		
+		// 문자열 내에 em 요소가 있는지 확인하고 번역
 		for(var i = 0; i < this.regExpEM.length; i++) {
 			string = string.replace(this.regExpEM[i], '<em>$1</em>');
 		}
 
+		// 문자열 내에 code 요소가 있는지 확인하고 번역
 		for(var i = 0; i < this.regExpCode.length; i++) {
 			string = string.replace(this.regExpCode[i], '<code>$1</code>');
 		}
 
+		// 문자열 내에 img 요소가 있는지 확인하고 번역
+		// 단 전체 내용 내에 대응대는 참조 스타일의 url이 없다면 번역되지 않는다.
 		while(true) {
 			var line = string.match(this.regExpImg);
 
@@ -533,6 +588,8 @@ RICALE.MarkdownDecoder.prototype = {
 			}
 		}
 
+		// 문자열 내에 a 요소가 있는지 확인하고 번역
+		// 단 전체 내용 내에 대응대는 참조 스타일의 url이 없다면 번역되지 않는다.
 		while(true) {
 			var line = string.match(this.regExpLink);
 
@@ -553,14 +610,18 @@ RICALE.MarkdownDecoder.prototype = {
 			}
 		}
 
+		// 인라인 스타일의 img 요소가 있는지 확인하고 번역
 		string = string.replace(this.regExpImgInline[0], '<img src="$2" alt="$1" title="$3">');
 		string = string.replace(this.regExpImgInline[1], '<img src="$2" alt="$1">');
 
+		// 인라인 스타일의 a 요소가 있는지 확인하고 번역
 		string = string.replace(this.regExpLinkInline[0], '<a href="$2" alt="$3">$1</a>');
 		string = string.replace(this.regExpLinkInline[1], '<a href="$2">$1</a>');
 
+		// url 스타일의 a 요소가 있는지 확인하고 번역
 		string = string.replace(this.regExpLinkAuto, '<a href="$1">$1</a>');
 
+		// br 요소가 있는지 확인하고 번역
 		string = string.replace(this.regExpBreak, '<br/>');
 
 		return string;
@@ -572,38 +633,38 @@ RICALE.MarkdownDecoder.prototype = {
 	decode: function() {
 		var string = "",
 			// ul이 이어지던 상태였는가. 상태라면 레벨은 몇이었는가.
-		    fLI = false,
+		    beginLI = false,
 		    // p가 이어지던 상태였는가.
-		    fP = false,
+		    beginP = false,
 		    // 코드블록이 이어지던 상태였는가.
-		    fCB = false,
+		    beginCODEBLOCK = false,
 		    // 인용이 이어지던 상태였는가.
-		    fBQ = 0,
-		    // CONTINUE가 이어지던 상태였는가.
-		    fCONT = false,
-		    listElements = Array();
+		    blockquoteLevel = 0;
+
+		this.listElements = Array();
 
 		// 줄 단위로 확인한다.
 		for(var i = 0; i < this.result.length; i++) {
 			var line = "";
 			    r = this.result[i],
 			    above = this.aboveExceptBlank(i),
-			    before = this.beforeLine(i),
+			    prev = this.previousLine(i),
 			    below = this.belowExceptBlank(i),
 			    next = this.nextLine(i);
 
+			// 코드블록이라면 내부의 인라인 요소를 번역할 필요가 없다.
 			if(r.tag != this.CODEBLOCK) {
 				r.child = this.decodeInline(r.child);
 			}
 
 			// 인용이 있고 이전 줄의 인용보다 레벨이 높다면
 			// 높은 레벨 만큼 <blockquote> 태그 추가
-			if(r.quote > 0 && r.quote > fBQ) {
-				for(var j = 0; j < r.quote - fBQ; j++) {
+			if(r.quote > 0 && r.quote > blockquoteLevel) {
+				for(var j = 0; j < r.quote - blockquoteLevel; j++) {
 					line += "<blockquote>";
 				}
 
-				fBQ = r.quote;
+				blockquoteLevel = r.quote;
 			}
 
 			switch(r.tag) {
@@ -640,107 +701,71 @@ RICALE.MarkdownDecoder.prototype = {
 
 				case this.UL:
 				case this.OL:
-					// 목록 레벨이 이전보다 높아졌다면 높아진 만큼 <ul> 추가
-					if(listElements.length < r.level) {
-						for(var j = listElements.length; j < r.level; j++) {
-							listElements[j] = r.tag;
-							line += listElements[j] == this.UL ? "<ul>" : "<ol>";
+					// 목록 레벨이 이전보다 높아졌다면 높아진 만큼 <ol> 혹은 <ul> 추가
+					if(this.listElements.length < r.level) {
+						for(var j = this.listElements.length; j < r.level; j++) {
+							this.listElements[j] = r.tag;
+							line += this.listElements[j] == this.UL ? "<ul>" : "<ol>";
 						}
 					}
 
 					line += "<li>";
-					fLI = true;
+					beginLI = true;
 
-					// 1. 공백을 포함한 다음 줄이 존재하고
-					// 2. 그 줄이 UL도 OL도 아닌데 목록 요소 레벨 값이 존재한다면
-					// <p> 추가
-					if(next != null && (next.tag != this.OL && next.tag != this.UL && next.level != 0)) {
-						line += "<p>";
-						fP = true;
-					}
+					var idxAboveList = this.idxAboveThisList(i),
+					    idxBelowList = this.idxBelowThisList(i);
 
-					line += r.child;
+					if((idxBelowList != null && this.result[idxBelowList].tag == this.BLANK	&& idxBelowList + 1 < this.result.length
+					                         && this.result[idxBelowList + 1].level == r.level)
+						|| (idxAboveList != null && this.result[idxAboveList].tag == this.BLANK && idxAboveList - 1 >= 0
+						                         && this.result[idxAboveList - 1].level == r.level)) {
 
-					// a. 공백을 제외한 다음 줄이 존재하지 않거나
-					// b. 공백을 제외한 다음 줄의 목록 요소 레벨이 0이라면
-					// </li> 추가
-					if(below == null || below.level == 0 || (below.tag == this.UL || below.tag == this.OL)) {
-						line += "</li>";
+						line += "<p>" + r.child;
+						beginP = true;
 
-						// 목록 레벨이 이전보다 낮아졌다면 낮아진 만큼 </ul> 추가
-						var level = below != null ? below.level : 0;
-						if(listElements.length > level) {
-							for(var j = listElements.length - 1; j >= level; j--) {
-								line += listElements[j] == this.UL ? "</ul>" : "</ol>";
-							}
-							listElements = listElements.slice(0, level);
+						if(next == null || next.tag != this.P) {
+							line += "</p>";
+							beginP = false;
 						}
+
+					} else {
+						line += r.child;
 					}
 
 					break;
 
 				case this.CODEBLOCK:
 					// 코드블록이 시작하지 않은 가운데 코드블록 요소가 나왔다면 <pre><code> 추가
-					if(!fCB) {
+					if(!beginCODEBLOCK) {
 						line += "<pre><code>";
-						fCB = true;
+						beginCODEBLOCK = true;
 					}
 
 					line += r.child;
 
-					// a. 공백을 제외한 다음 줄이 존재하지 않거나
-					// b. 공백을 제외한 다음 줄이 코드블록 요소가 아니거나
-					// c. 공백을 제외한 다음 줄의 인용 레벨이 현재보다 높다면
-					// </code></pre> 태그를 추가한다.
-					if(below == null || below.tag != this.CODEBLOCK || below.quote > r.quote) {
+					if((r.level == 0 && (below == null || below.tag != this.CODEBLOCK || below.quote > r.quote))
+						|| (r.level != 00 && (next == null || next.tag != this.CODEBLOCK))) {
 						line += "</code></pre>"
-						fCB = false;
+						beginCODEBLOCK = false;
 					}
 
 					break;
 
 				case this.P:
 					// 문단이 시작하지 않은 가운데 목록 요소가 나왔다면 <p> 추가
-					if(!fP) {
+					if(!beginP && !beginLI) {
 						line += "<p>";
-						fP = true;
+						beginP = true;
 					}
 
 					line += r.child;
 
-					if(r.level != 0) {
-
-						// 1. 공백을 포함한 다음 줄이 존재하고
-						// 2. 그 줄이 CONTINUE 요소가 아니라면
-						// </p> 추가
-						if(next != null && next.tag != this.P) {
+					if(beginP) {
+						if((r.level == 0 && (next == null || next.tag != this.P || below.quote > r.quote))
+							|| (r.level != 0 && (next == null || next.tag != this.P))) {
 							line += "</p>";
-							fP = false;
-
-							if(below == null || below.level == 0 || (below.tag == this.UL || below.tag == this.OL)) {
-								line += "</li>";
-
-								// 목록 레벨이 이전보다 낮아졌다면 낮아진 만큼 </ul> 추가
-								var level = below != null ? below.level : 0;
-								if(listElements.length > level) {
-									for(var j = listElements.length - 1; j >= level; j--) {
-										line += listElements[j] == this.UL ? "</ul>" : "</ol>";
-									}
-									listElements = listElements.slice(0, level);
-								}
-							}
+							beginP = false;
 						}
-					} else {
-
-						// a. 공백을 포함한 다음 줄이 존재하지 않거나
-						// b. 공백을 포함한 다음 줄이 문단 요소가 아니거나
-						// c. 공백을 제외한 다음 줄의 인용 레벨이 현재보다 높다면
-						// </p> 를 추가한다.
-						if(next == null || next.tag != this.P || below.quote > r.quote) {
-							line += "</p>";
-							fP = false;
-						}
-
 					}
 					break;
 
@@ -749,20 +774,42 @@ RICALE.MarkdownDecoder.prototype = {
 					break;
 			}
 
+			if(beginLI) {
+
+				// a. 공백을 제외한 다음 줄이 존재하지 않거나
+				// b. 공백을 제외한 다음 줄의 목록 요소 레벨이 0이거나
+				// c. 공백을 제외한 다음 줄이 UL 혹은 OL 이라면
+				// </li> 추가
+				if(below == null || below.level == 0 || (below.tag == this.UL || below.tag == this.OL)) {
+					line += "</li>";
+					beginLI = false;
+
+					// 목록 레벨이 이전보다 낮아졌다면 낮아진 만큼 </ul> 추가
+					var level = below != null ? below.level : 0;
+					if(this.listElements.length > level) {
+						for(var j = this.listElements.length - 1; j >= level; j--) {
+							line += this.listElements[j] == this.UL ? "</ul>" : "</ol>";
+						}
+						this.listElements = this.listElements.slice(0, level);
+					}
+				}
+			}
+
 			// a. 빈 줄을 제외한 아래 줄이 없거나 (마지막 줄이거나)
 			// b. 1. 빈 줄을 제외한 아래 줄이 이 줄 인용보다 레벨이 낮고 
 			//    2. 빈 줄을 포함한 바로 아래 줄이 빈 줄이며 인용 레벨이 0이라면
 			// </blockquote> 태그를 추가한다.
-			if(below == null || (below.quote < fBQ && (next.tag == this.BLANK && next.quote == 0))) {
+			if(below == null || (below.quote < blockquoteLevel && (next.tag == this.BLANK && next.quote == 0))) {
 				var quote = below != null ? below.quote : 0
-				for(var j = 0; j < fBQ - quote; j++) {
+				for(var j = 0; j < blockquoteLevel - quote; j++) {
 					line += "</blockquote>";
 				}
 
-				fBQ = quote;
+				blockquoteLevel = quote;
 			}
 
 			string += line;
+			console.log(line);
 		}
 
 		this.target.html(string);
@@ -774,6 +821,6 @@ RICALE.MarkdownDecoder.prototype = {
 $(document).ready(function() {
 	RICALE.decoder = new RICALE.MarkdownDecoder($('#target'));
 	$('#source').click(function() {
-		RICALE.decoder.translate($('#source').text());
+		RICALE.decoder.translate($('#source').val());
 	});
 });
