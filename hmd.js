@@ -500,6 +500,18 @@ RICALE.HMD.Decoder.prototype = {
 		// 이 줄은 목록 요소 내부의 문단 요소이다.
 		if(prev != null && prev.level != 0) {
 
+			// a
+		   	if(line != null && prev.tag == this.CODEBLOCK && this.getIndentLevel(line[1]) == 8) {
+		   		if((this.listLevel.length - 1) * 4 <= this.getIndentLevel(line[2])) {
+		   			result.tag = this.CODEBLOCK;
+					result.child = line[2].slice((this.listLevel.length - 1) * 4) + line[3];
+					result.level = this.listLevel.length;
+					result.quote = last.quote;
+
+					return result;
+		   		}
+		   	}
+
 			result = this.matchBlockquotes(string);
 			result.tag = this.P;
 			result.level = this.listLevel.length;
@@ -806,7 +818,7 @@ RICALE.HMD.Decoder.prototype = {
 						beginCodeblock = true;
 					}
 
-					line += r.child;
+					line += r.child + "\r\n";
 
 					// a. 1. 현재 목록 레벨이 0이고 (목록 요소 내부이고)
 					//    2. a. 공백을 포함한 바로 아랫 줄이 존재하지 않거나
