@@ -76,7 +76,8 @@ RICALE.HMD.Decoder.prototype = {
 	// ### 블록 요소 마크다운의 정규 표현식들
 
 	// 반드시 지켜져야 할 해석 순서
-	// Blockquote > Heading Underlined > HR > (UL, OL, Blank, ContinuedList) > (Codeblock, Heading, ReferencedId)
+	// Blockquote > Heading Underlined > HR > (UL, OL, ContinuedList) > (Codeblock, Heading, ReferencedId)
+	// Blank > Codeblock
 
 	regExpBlockquote: /^[ ]{0,3}(>+)[ ]([ ]*.*)$/,
 	regExpH1Underlined: /^[=]+$/,
@@ -87,7 +88,7 @@ RICALE.HMD.Decoder.prototype = {
 	regExpBlank: /(^[\s]*$)|(^$)/,
 	regExpContinuedList: /(^[\s]{1,8})([\s]*)(.*)/,
 	regExpCodeblock: /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/,
-	regExpHeading: /^(#{1,6}) (.*)(#*)$/,
+	regExpHeading: /^(#{1,6}) (.*[^#])(#*)$/,
 	regExpReferencedId: [
 		/^\s{0,3}\[([^\[\]]+)\]:\s*<([^\s<>]+)>\s*(['"(](.*)["'(])?$/,
 		/^\s{0,3}\[([^\[\]]+)\]:\s*([^\s]+)\s*(['"(](.*)["'(])?$/
@@ -101,15 +102,15 @@ RICALE.HMD.Decoder.prototype = {
 	// - ImgInline > LineInline
 
 	regExpStrong: [
-		/\*\*([^\s]+.*[^\s]+)\*\*/g,
-		/__([^\s]+.*[^\s]+)__/g
+		/\*\*([^\s\\]+.*[^\s\\]+)\*\*/g,
+		/__([^\s\\]+.*[^\s\\]+)__/g
 	],
 	regExpEM: [ 
-		/\*([^\s]+.*[^\s]+)\*/g,
-		/_([^\s]+.*[^\s]+)_/g
+		/\*([^\s\\]+.*[^\s\\]+)\*/g,
+		/_([^\s\\]+.*[^\s\\]+)_/g
 	],
-	regExpImg: /!\[(.+)\]\s*\[(.*)\]/,
-	regExpLink: /\[(.+)\]\s*\[(.*)\]/,
+	regExpImg: /!\[([^\[\]]+)\]\s*\[([^\[\]]*)\]/,
+	regExpLink: /\[([^\[\]]+)\]\s*\[([^\[\]]*)\]/,
 	regExpImgInline: [
 		/!\[([^\[\]]+)\]\s*\(([^\s\(\)]+) "(.*)"\)/g,
 		/!\[([^\[\]]+)\]\s*\(([^\s\(\)]+)\)/g
@@ -124,7 +125,8 @@ RICALE.HMD.Decoder.prototype = {
 		/`{1}(.+)`{1}/g
 	],
 	regExpBreak: /(  )$/,
-	regExpEscape: /\\([-_\*+\.>#])/,
+	regExpEscape: /(\\([-_\*+\.>#]))/,
+	regExpEscape2: /\{\\([-_\*+\.>#])\\\}/,
 
 	// ### public method
 	// (물론 실제로 JavaScript에 접근 지정자는 없다. 단지 의도가 그렇다는 것이다.)
@@ -606,6 +608,8 @@ RICALE.HMD.Decoder.prototype = {
 	// 아무런 인라인 문법도 포함하고 있지 않다면 인자를 그대로 반환한다.
 	// 추가적으로 사용자가 번역 함수를 추가했다면 해당 함수 또한 실행된다.
 	decodeInline: function(string) {
+		string = string.replace(this.regExpEscape, '{$1\\}');
+
 		// 문자열 내에 strong 요소가 있는지 확인하고 번역
 		for(var i = 0; i < this.regExpStrong.length; i++) {
 			string = string.replace(this.regExpStrong[i], '<strong>$1</strong>');
@@ -679,7 +683,7 @@ RICALE.HMD.Decoder.prototype = {
 		// br 요소가 있는지 확인하고 번역
 		string = string.replace(this.regExpBreak, '<br/>');
 
-		string = string.replace(this.regExpEscape, '$1');
+		string = string.replace(this.regExpEscape2, '$1');
 
 		// 사용자가 추가적인 인라인 문법 번역 함수를 추가했다면 실행한다.
 		if(this.additionalDecodeInline != null) {
