@@ -53,6 +53,7 @@ RICALE.HMD.Decoder = function() {
 
 	// 목록 요소의 레벨 계산을 위한 (정수) 배열
 	this.listLevel = Array();
+	this.listLevelInBlockquote = Array();
 
 	// 사용자가 추가하는 인라인 요소 번역 메서드.
 	this.additionalDecodeInline = null;
@@ -219,6 +220,7 @@ RICALE.HMD.Decoder.prototype = {
 		this.result = Array();
 		this.refId = {};
 		this.listLevel = Array();
+		this.listLevelInBlockquote = Array();
 	},
 
 	// 문자열(string)에 어떤 마크다운 문법 (블록 요소 기준) 이 적용되었는지 확인한다.
@@ -365,7 +367,7 @@ RICALE.HMD.Decoder.prototype = {
 	// a의 경우 정확히 무엇인지(UL/OL) 결과 값을 반환하고
 	// b의 경우 false를 반환한다.
 	isThisReallyListElement: function(tag, line, result) {
-		var r = this.getListLevel(line[1]);
+		var r = this.getListLevel(line[1], result.quote != 0);
 
 		if(r.tag != this.CODEBLOCK) {
 			result.tag   = r.tag != null ? r.tag : tag;
@@ -380,44 +382,40 @@ RICALE.HMD.Decoder.prototype = {
 
 	// 목록 요소의 레벨을 이 줄의 들여쓰기(blank)를 통해 계산해 반환한다.
 	// 목록 요소와 유사한 형태의 CODEBLOCK이라면 해당 결과를 반환한다.
-	getListLevel: function(blank) {
+	getListLevel: function(blank, isInBq) {
 		// 이 줄의 들여쓰기가 몇 개의 공백으로 이루어져있는지 확인한다.
 		var space = this.getIndentLevel(blank),
-		    result = new RICALE.HMD.TranslateSentence();
+		    result = new RICALE.HMD.TranslateSentence(),
+		    levels = isInBq ? this.listLevelInBlockquote : this.listLevel;
 
 		// 현재 문법을 확인하고 있는 문자열이 목록 요소의 시작이라면
 		// a. 공백이 3 이하라면 목록의 레벨은 1이 된다.
 		// b. 공백이 3 초과라면 이 줄은 목록 요소가 아니라 코드블록 요소이다.
-		if(this.listLevel.length == 0) {
+		if(levels.length == 0) {
 			if(space <= 3) {
-				this.listLevel[0] = space;
+				levels[0] = space;
 
 				result.level = 1;
-				return result;
 
 			} else {
 				result.tag = this.CODEBLOCK;
-				return result;
 			}
 
 		// 현재 목록 레벨이 1만 존재하는 상황에서
 		// a. 목록 레벨 1과 들여쓰기가 같다면 이 줄은 레벨 1이 된다.
 		// b. 목록 레벨 1과 들여쓰기가 다르고 공백이 7 이하라면 레벨 2가 된다.
 		// c. 공백이 7 초과라면 이 줄은 목록 요소가 아니라 코드블록 요소이다.
-		} else if (this.listLevel.length == 1) {
-			if(space == this.listLevel[0]) {
+		} else if (levels.length == 1) {
+			if(space == levels[0]) {
 				result.level = 1;
-				return result;
 
 			} else if(space <= 7) {
-				this.listLevel[1] = space;
+				levels[1] = space;
 
 				result.level = 2;
-				return result;
 
 			} else {
 				result.tag = this.CODEBLOCK;
-				return result;
 			}
 
 		// 현재 목록 레벨이 2 이상 존재하는 상황에서
@@ -426,38 +424,42 @@ RICALE.HMD.Decoder.prototype = {
 		// c. a, b에 포함되지 않고, 현재 목록 레벨의 공백보다 크거나 같으면 이 줄의 목록 레벨은 현재 목록 레벨과 동일하다.
 		// d. a, b, c에 포함되지 않고, 현재 목록 레벨 이 전의 특정 목록 레벨보다 크거나 같다면 이 줄의 목록 레벨은 해당 목록 레벨과 동일하다.
 		} else {
-			var now = this.listLevel.length;
+			var now = levels.length;
 
 			if(space >= (now + 1) * 4) {
 				result.tag = this.P;
 				result.level = now;
-				return result;
 
-			} else if(space > this.listLevel[now - 1] && space > (now - 1) * 4) {
-				this.listLevel[now] = space;
+			} else if(space > levels[now - 1] && space > (now - 1) * 4) {
+				levels[now] = space;
 
 				result.level = now + 1;
-				return result;
 
-			} else if(space >= this.listLevel[now - 1]) {
+			} else if(space >= levels[now - 1]) {
 				result.level = now;
-				return result;
 
 			} else {
 				for(var i = now - 2; i >= 0 ; i--) {
-					if(space >= this.listLevel[i]) {
-						this.listLevel = this.listLevel.slice(0, i + 1);
+					if(space >= levels[i]) {
+						levels = levels.slice(0, i + 1);
 
 						result.level = i + 1;
-						return result;
 					}
 				}
 
 				result.tag = this.P;
 				result.level = now;
-				return result;
 			}
 		}
+
+		if(isInBq) {
+			result.level += this.listLevel.length;
+			this.listLevelInBlockquote = levels;
+		} else {
+			this.listLevel = levels;
+		}
+
+		return result;
 	},
 
 	// 들여쓰기(blank)가 몇 개의 공백(space)인지 확인해 결과를 반환한다.
