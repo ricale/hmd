@@ -441,6 +441,7 @@ RICALE.HMD.Decoder.prototype = {
 
 						result.level = i + 1;
 						exist = true;
+						break;
 					}
 				}
 
