@@ -80,19 +80,19 @@ RICALE.HMD.Decoder.prototype = {
 	// Blockquote > Heading Underlined > HR > (UL, OL, ContinuedList) > (Codeblock, Heading, ReferencedId)
 	// Blank > Codeblock
 
-	regExpBlockquote: /^[ ]{0,3}(>+)[ ]([ ]*.*)$/,
-	regExpH1Underlined: /^[=]+$/,
-	regExpH2Underlined: /^[-]+$/,
-	regExpHR: /(^[ ]{0,3}[-]+[ ]*[-]+[ ]*[-]+[ ]*$)|(^[ ]{0,3}[_]+[ ]*[_]+[ ]*[_]+[ ]*$)|(^[ ]{0,3}[\*]+[ ]*[\*]+[ ]*[\*]+[ ]*$)/,
-	regExpUL: /^([\s]*)[\*+-][ ]+(.*)$/,
+	regExpBlockquote: /^[ ]{0,3}(>+) ([ ]*.*)$/,
+	regExpH1Underlined: /^=+$/,
+	regExpH2Underlined: /^-+$/,
+	regExpHR: /^[ ]{0,3}([-_*]+)[ ]*\1[ ]*\1[ ]*$/,
+	regExpUL: /^([\s]*)[*+-][ ]+(.*)$/,
 	regExpOL: /^([\s]*)[\d]+\.[ ]+(.*)$/,
-	regExpBlank: /(^[\s]*$)|(^$)/,
-	regExpContinuedList: /(^[\s]{1,8})([\s]*)(.*)/,
-	regExpCodeblock: /^([ ]{0,3}\t|[ ]{4})([ \t]{0,}.+)$/,
+	regExpBlank: /^[\s]*$/,
+	regExpContinuedList: /^([\s]{1,8})([\s]*)(.*)/,
+	regExpCodeblock: /^([ ]{0,3}\t|[ ]{4})([\s]*.*)$/,
 	regExpHeading: /^(#{1,6}) (.*[^#])(#*)$/,
 	regExpReferencedId: [
-		/^\s{0,3}\[([^\[\]]+)\]:\s*<([^\s<>]+)>\s*(['"(](.*)["'(])?$/,
-		/^\s{0,3}\[([^\[\]]+)\]:\s*([^\s]+)\s*(['"(](.*)["'(])?$/
+		/^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/,
+		/^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/
 	],
 
 	// ### 인라인 요소 마크다운의 정규 표현식들
@@ -103,27 +103,21 @@ RICALE.HMD.Decoder.prototype = {
 	// - ImgInline > LineInline
 
 	regExpStrong: [
-		/\*\*([^\s\\]+.*[^\s\\]+)\*\*/g,
-		/__([^\s\\]+.*[^\s\\]+)__/g
+		/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g,
+		/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g
 	],
-	regExpEM: [ 
-		/\*([^\s\\]+.*[^\s\\]+)\*/g,
-		/_([^\s\\]+.*[^\s\\]+)_/g
+	regExpEM: [
+		/\*([^\*\s]{1,2}|[^\s].+?[^\s])\*/g,
+		/_([^_\s]{1,2}|[^\s].+?[^\s])_/g
 	],
-	regExpImg: /!\[([^\[\]]+)\]\s*\[([^\[\]]*)\]/,
-	regExpLink: /\[([^\[\]]+)\]\s*\[([^\[\]]*)\]/,
-	regExpImgInline: [
-		/!\[([^\[\]]+)\]\s*\(([^\s\(\)]+) "(.*)"\)/g,
-		/!\[([^\[\]]+)\]\s*\(([^\s\(\)]+)\)/g
-	],
-	regExpLinkInline: [
-		/\[([^\[\]]+)\]\s*\(([^\s\(\)]+) "(.*)"\)/g,
-		/\[([^\[\]]+)\]\s*\(([^\s\(\)]+)\)/g
-	],
-	regExpLinkAuto: /<(http[s]?:\/\/.+)>/g,
+	regExpImg: /!\[([^\]]+)\][\s]*\[([^\]]*)\]/,
+	regExpLink: /\[([^\]]+)\][\s]*\[([^\]]*)\]/,
+	regExpImgInline: /!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,
+	regExpLinkInline: /\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,
+	regExpLinkAuto: /<(http[s]?:\/\/[^>]+)>/g,
 	regExpCode: [
-		/`{2}(.+)`{2}/g,
-		/`{1}(.+)`{1}/g
+		/``[\s]*(.+?)[\s]*``/g,
+		/`([^`]+)`/g
 	],
 	regExpBreak: /(  )$/,
 	regExpEscape: /(\\([-_\*+\.>#]))/,
@@ -206,6 +200,7 @@ RICALE.HMD.Decoder.prototype = {
 				&& this.result[now].tag != this.BLANK
 				&& this.result[now].level == 0) {
 				this.listLevel = Array();
+			    this.listLevelInBlockquote = Array();
 			}
 
 			now++;
@@ -324,7 +319,7 @@ RICALE.HMD.Decoder.prototype = {
 			line = result.child.match(this.regExpReferencedId[1]);
 		}
 		if(line != null) {
-			this.refId[line[1]] = new RICALE.HMD.ReferencedId(line[2], line[4]);
+			this.refId[line[1]] = new RICALE.HMD.ReferencedId(line[2], line[3]);
 			return null;
 		}
 
@@ -439,16 +434,20 @@ RICALE.HMD.Decoder.prototype = {
 				result.level = now;
 
 			} else {
+				var exist = false;
 				for(var i = now - 2; i >= 0 ; i--) {
 					if(space >= levels[i]) {
 						levels = levels.slice(0, i + 1);
 
 						result.level = i + 1;
+						exist = true;
 					}
 				}
 
-				result.tag = this.P;
-				result.level = now;
+				if(!exist) {
+					result.tag = this.P;
+					result.level = now;
+				}
 			}
 		}
 
@@ -625,14 +624,12 @@ RICALE.HMD.Decoder.prototype = {
 		string = string.replace(this.regExpEscape, '{$1\\}');
 
 		// 문자열 내에 strong 요소가 있는지 확인하고 번역
-		for(var i = 0; i < this.regExpStrong.length; i++) {
-			string = string.replace(this.regExpStrong[i], '<strong>$1</strong>');
-		}
+		string = string.replace(this.regExpStrong[0], '<strong>$1</strong>');
+		string = string.replace(this.regExpStrong[1], '<strong>$1</strong>');
 		
 		// 문자열 내에 em 요소가 있는지 확인하고 번역
-		for(var i = 0; i < this.regExpEM.length; i++) {
-			string = string.replace(this.regExpEM[i], '<em>$1</em>');
-		}
+		string = string.replace(this.regExpEM[0], '<em>$1</em>');
+		string = string.replace(this.regExpEM[1], '<em>$1</em>');
 
 		// 문자열 내에 code 요소가 있는지 확인하고 번역
 		for(var i = 0; i < this.regExpCode.length; i++) {
@@ -684,12 +681,10 @@ RICALE.HMD.Decoder.prototype = {
 		}
 
 		// 인라인 스타일의 img 요소가 있는지 확인하고 번역
-		string = string.replace(this.regExpImgInline[0], '<img src="$2" alt="$1" title="$3">');
-		string = string.replace(this.regExpImgInline[1], '<img src="$2" alt="$1">');
+		string = string.replace(this.regExpImgInline, '<img src="$2" alt="$1" title="$3">');
 
 		// 인라인 스타일의 a 요소가 있는지 확인하고 번역
-		string = string.replace(this.regExpLinkInline[0], '<a href="$2" alt="$3">$1</a>');
-		string = string.replace(this.regExpLinkInline[1], '<a href="$2">$1</a>');
+		string = string.replace(this.regExpLinkInline, '<a href="$2" title="$3">$1</a>');
 
 		// url 스타일의 a 요소가 있는지 확인하고 번역
 		string = string.replace(this.regExpLinkAuto, '<a href="$1">$1</a>');
