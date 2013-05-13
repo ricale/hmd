@@ -24,8 +24,6 @@ RICALE.HMD.TranslateSentence = function() {
 	this.level = 0;
 	// 이 문장의 인용 블록 요소 중첩 정도 (integer)
 	this.quote = 0;
-
-	this.continued = false;
 }
 
 // 참조 스타일의 이미지/링크 요소가 사용되었을 때
@@ -69,11 +67,14 @@ RICALE.HMD.Decoder.prototype = {
 	H4: "h4",
 	H5: "h5",
 	H6: "h6",
+	H1U: "h1u",
+	H2U: "h2u",
 	HR: "hr",
 	UL: "ul",
 	OL: "ol",
 	BLANK: "blank",
 	CODEBLOCK: "codeblock",
+	BLOCKQUOTE: "blockquote",
 
 	// ### 블록 요소 마크다운의 정규 표현식들
 
@@ -81,16 +82,16 @@ RICALE.HMD.Decoder.prototype = {
 	// Blockquote > Heading Underlined > HR > (UL, OL, ContinuedList) > (Codeblock, Heading, ReferencedId)
 	// Blank > Codeblock
 
-	regExpBlockquote: /^([ ]{0,3})(>+) ([ ]*.*)$/,
+	regExpHeading: /^(#{1,6}) (.*[^#])(#*)$/,
 	regExpH1Underlined: /^=+$/,
 	regExpH2Underlined: /^-+$/,
-	regExpHR: /^[ ]{0,3}([-_*]+)[ ]*\1[ ]*\1[ ]*$/,
-	regExpUL: /^([\s]*)[*+-][ ]+(.*)$/,
-	regExpOL: /^([\s]*)[\d]+\.[ ]+(.*)$/,
+	regExpBlockquote: /^(>[ ]?)+ (.*)$/,
+	regExpHR: /^([-_*]+)[ ]*\1[ ]*\1[ ]*$/,
+	regExpUL: /^[*+-][ ]+(.*)$/,
+	regExpOL: /^[\d]+\.[ ]+(.*)$/,
 	regExpBlank: /^[\s]*$/,
 	regExpContinuedList: /^([\s]{1,8})([\s]*)(.*)/,
 	regExpCodeblock: /^([ ]{0,3}\t|[ ]{4})([\s]*.*)$/,
-	regExpHeading: /^(#{1,6}) (.*[^#])(#*)$/,
 	regExpReferencedId: [
 		/^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/,
 		/^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/
@@ -160,10 +161,10 @@ RICALE.HMD.Decoder.prototype = {
 	// - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 textarea 요소의 셀렉터
 	// - targetElementSelector : HTML 형식의 번역 결과가 출력될 HTML 요소의 셀렉터
 	run: function(sourceTextareaSelector, targetElementSelector) {
-	    var interval = null,
-	        self = this;
+		var interval = null,
+			self = this;
 
-	    this.targetSelector = targetElementSelector;
+		this.targetSelector = targetElementSelector;
 
 		$(sourceTextareaSelector).keydown(function(event) {
 			if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
@@ -208,36 +209,22 @@ RICALE.HMD.Decoder.prototype = {
 
 		// 타겟 요소의 문자열을 줄 단위로 끊어 배열로 저장한다.
 		var array = sourceString.split(/\n/),
-		    i, result;
+		    i, now, result;
 
 		// 한 줄 한 줄이 어떤 마크다운에 해당하는 지 체크한다.
 		for(i = 0, now = 0; i < array.length; i++) {
+			result = this.match(array[i]);
 
-			console.log(this.listLevel);
-			result = this.match(array[i], now, 0);
-
-			// 참조 스타일의 링크/이미지 기능을 위한 참조 문자열이었다면
-			// 실제로 보이는 문자열이 아니므로 지나친다.
-			if(result == null) {
-				continue;
+			if(result != false) {
+				if(result.grammar[result.grammar.length - 1] == this.H1U && result.grammar.length == this.result[now-1].grammar.length + 1) {
+					this.result[now-1].grammar.push(this.H1);
+				} else if(result.grammar[result.grammar.length - 1] == this.H1U && result.grammar.length == this.result[now-1].grammar.length + 1) {
+					this.result[now-1].grammar.push(this.H2);
+				} else {
+					this.result[now] = result;
+					now += 1;
+				}
 			}
-
-			console.log(result.child, [result.tag, result.level, result.quote]);
-			console.log(this.listLevel);
-			console.log('-----------------------');
-
-
-			this.result[now] = result;
-
-			// 이전까지 목록 요소들이었다가
-			// 현재 줄에서 목록 요소가 아니게 되면 목록 관련 계산 배열을 초기화한다.
-			if((this.listLevel.length > 0)
-				&& this.result[now].tag != this.BLANK
-				&& this.result[now].level == 0) {
-				this.listLevel[0] = Array();
-			}
-
-			now++;
 		}
 
 		// 줄 단위로 해석한 것을 통합해서 번역한다.
@@ -255,172 +242,142 @@ RICALE.HMD.Decoder.prototype = {
 	// 문자열의 줄번호(now)는, 어떠한 마크다운 문법과도 매치되지 않는 문장일 경우
 	// 목록 요소로부터 늘어진 블록 요소인지 확인하기 위해 쓰인다.
 	// RICALE.HMD.MarkdownSentence 객체를 반환한다.
-	match: function(string, now, nested) {
-		// 인용 블록 요소가 포함되어있는 지 확인한다.
-		// 오직 인용 블록 요소만이 다른 블록 요소와 중첩될 수 있다.
-		var result = this.matchBlockquotes(string, now),
-		    line = null,
-		    isContinuedList = false, isLine, headingLevel;
+	match: function(string) {
+		var separated = {
+			'grammar' : Array(),
+			'string'  : string
+		}, result;
 
-		// 빈 줄인지 확인한다.
-		line = result.child.match(this.regExpBlank);
-		if(line != null) {
-			result.tag   = this.BLANK;
-			result.child = "";
+		if((result = this.matchHeading(separated)) != null) {
 			return result;
+		}
+
+		do {
+			separated = this.separateIndent(separated);
+
+			if((result = this.matchHeading(separated)) != null) {
+				console.log(result.grammar, result.string);
+				return result;
+			}
+
+			if((result = this.separateBlockElements(separated)) != null && result != false) {
+				separated = result;
+			}
+
+		} while(result != null && result != false);
+
+		return result == false ? false : separated;
+
+	}, // end function match
+
+	// 들여쓰기(blank)가 몇 개의 공백(space)인지 확인해 결과를 반환한다.
+	// 탭(tab) 문자는 4개의 공백으로 계산한다.
+	separateIndent: function(separated) {
+		var string, indent, space = 0, i;
+
+		if((string = separated.string.match(/^([ \t]*)(?=[^ \t])(.*)$/)) == null) {
+			separated.grammar.push(this.BLANK);
+			return separated;
+		}
+
+		if((indent = string[1].match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g)) != null) {
+			for(i = 0; i < indent.length; i++) {
+				space += indent[i].match(/^[ ]{1,3}$/) != null ? indent[i].length : 4;
+			}
+		}
+
+		if(space != 0) {
+			separated.grammar.push(space);
+		}
+		separated.string = string[2];
+
+		return separated;
+	},
+
+	matchHeading: function(separated) {
+		var string = separated.string;
+
+		// 제목(h1, h2, h3, h4, h5, h6) 문법인지 확인한다.
+		if((line = string.match(this.regExpHeading)) != null) {
+			headingLevel = line[1].length;
+
+			switch(headingLevel) {
+				case 1: separated.grammar.push(this.H1); break;
+				case 2: separated.grammar.push(this.H2); break;
+				case 3: separated.grammar.push(this.H3); break;
+				case 4: separated.grammar.push(this.H4); break;
+				case 5: separated.grammar.push(this.H5); break;
+				case 6: separated.grammar.push(this.H6); break;
+			}
+
+			separated.string = line[2];
+			return separated;
 		}
 
 		// 밑줄 스타일의 H1 문법인지 확인한다.
 		// 만약 맞다면 이 줄 자체는 아무런 의미가 없기 때문에 null을 반환한다.
-		line = result.child.match(this.regExpH1Underlined);
-		if(line != null && now != 0 && this.result[now - 1].tag == this.P) {
-			this.result[now - 1].tag = this.H1;
-			return null;
+		if((line = string.match(this.regExpH1Underlined)) != null) {
+			separated.grammar.push(this.H1U);
+			return separated;
 		}
 
 		// 밑줄 스타일의 H2 문법인지 확인한다.
 		// 만약 맞다면 이 줄 자체는 아무런 의미가 없기 때문에 null을 반환한다.
-		line = result.child.match(this.regExpH2Underlined);
-		if(line != null && now != 0 && this.result[now - 1].tag == this.P) {
-			this.result[now - 1].tag = this.H2;
-			return null;
+		if((line = string.match(this.regExpH2Underlined)) != null) {
+			separated.grammar.push(this.H2U);
+			return separated;
+		}
+
+		return null;
+	},
+
+	separateBlockElements: function(separated) {
+		var line;
+
+		
+		if((line = separated.string.match(this.regExpBlockquote)) != null) {
+			separated.grammar.push(this.BLOCKQUOTE + line[1].match(/>/).length);
+			separated.string = line[2];
+			return separated;
 		}
 
 		// hR 문법인지 확인한다.
-		line = result.child.match(this.regExpHR);
-		if(line != null) {
-			result.tag   = this.HR;
-			result.child = "";
-			return result;
+		if((line = separated.string.match(this.regExpHR)) != null) {
+			separated.grammar.push(this.HR);
+			separated.string = "";
+			return separated;
 		}
 
 		// UL 문법인지 확인한다.
 		// 모양만 유사한 코드 블록일 가능성도 있다.
-		line = result.child.match(this.regExpUL);
-		if(line != null) {
-			isLine = this.isThisReallyListElement(this.UL, line, result.quote);
-			if(isLine !== false) {
-				return isLine;
-			} else {
-				line = result.child.match(this.regExpCodeblock);
-				return this.getCodeblockResult(line, result);
-			}
+		if((line = separated.string.match(this.regExpUL)) != null) {
+			separated.grammar.push(this.UL);
+			separated.string = line[1];
+			return separated;
 		}
 
-		// OL 문법인지 확인한다.
-		// 모양만 유사한 코드 블록일 가능성도 있다.
-		line = result.child.match(this.regExpOL);
-		if(line != null) {
-			isLine = this.isThisReallyListElement(this.OL, line, result.quote);
-			if(isLine !== false) {
-				return isLine;
-			} else {
-				line = result.child.match(this.regExpCodeblock);
-				return this.getCodeblockResult(line, result);
-			}
-		}
-
-		// 목록 요소에서 이어지는 블록 요소인지 확인한다.
-		// 다른 요소 확인 때는 인용 블록 요소를 체크한 결과(result.child)를 이용해 확인하지만,
-		// 여기서 만큼은 원본 문자열(string)로 확인한다.
-//		if(result.quote <= 0) {
-			line = this.matchContinuedList(string, now);
-			if(line != null) {
-				return line;
-			}
-//		}
-
-		// 제목(h1, h2, h3, h4, h5, h6) 문법인지 확인한다.
-		line = result.child.match(this.regExpHeading);
-		if(line != null) {
-			headingLevel = line[1].length;
-
-			switch(headingLevel) {
-				case 1: result.tag = this.H1; break;
-				case 2: result.tag = this.H2; break;
-				case 3: result.tag = this.H3; break;
-				case 4: result.tag = this.H4; break;
-				case 5: result.tag = this.H5; break;
-				case 6: result.tag = this.H6; break;
-			}
-
-			result.child = line[2];
-			return result;
+		if((line = separated.string.match(this.regExpOL)) != null) {
+			separated.grammar.push(this.OL);
+			separated.string = line[1];
+			return separated;
 		}
 
 		// 참조 스타일의 이미지/링크 요소를 위한 참조 문자열 문법인지 확인한다.
-		line = result.child.match(this.regExpReferencedId[0]);
-		if(line == null) {
-			line = result.child.match(this.regExpReferencedId[1]);
-		}
-		if(line != null) {
+		if((line = separated.string.match(this.regExpReferencedId[0])) != null
+		   || (line = separated.string.match(this.regExpReferencedId[1])) != null) {
 			this.refId[line[1]] = new RICALE.HMD.ReferencedId(line[2], line[3] ? line[3] : "");
-			return null;
-		}
-
-		// 코드블록(pre code) 문법인지 확인한다.
-		line = result.child.match(this.regExpCodeblock);
-		if(line != null) {
-			return this.getCodeblockResult(line, result);
-		}
-
-		// 어떠한 문법과도 일치하지 않는다면 문단(p) 문법으로 판단한다.
-		result.tag = this.P;
-		return result;
-
-	}, // end function match
-
-	// 이 줄(string)이 인용 요소에 포함된 줄인지,
-	// 포함되어 있다면 인용 요소가 몇 번이나 중첩되어 있는지 확인한다.
-	// 인용 블록 요소 확인 결과가 담긴 RICALE.HMD.TranslateSentence 객체를 반환한다.
-	matchBlockquotes: function(string, now) {
-		var result = new RICALE.HMD.TranslateSentence(),
-		    line = null;
-
-		result.child = string;
-
-		if((line = result.child.match(this.regExpBlockquote)) != null) {
-			result.quote += line[2].length;
-			result.child = line[3];
-			result.indent = line[1].length;
-		}
-		while((line = result.child.match(this.regExpBlockquote)) != null) {
-			result.quote += line[2].length;
-			result.child = line[3];
-		}
-
-		return result;
-	},
-
-	// UL/OL의 정규 표현식과 일치한 결과(line)가
-	// a. 진짜 UL/OL인지,
-	// b. UL/OL과 비슷한 형식을 취하고 있는 CODEBLOCK인지
-	// 확인한다.
-	// a의 경우 정확히 무엇인지(UL/OL) 결과 값을 반환하고
-	// b의 경우 false를 반환한다.
-	isThisReallyListElement: function(tag, line, nested) {
-		var result = new RICALE.HMD.TranslateSentence(),
-		    r = this.getListLevel(line[1], nested);
-
-		if(r.tag != this.CODEBLOCK) {
-			result.tag   = r.tag != null ? r.tag : tag;
-			result.level = r.level;
-			result.quote = nested;
-			result.child = line[2];
-			return result;
-
-		} else {
 			return false;
 		}
+
+		return null;
 	},
 
-	// 목록 요소의 레벨을 이 줄의 들여쓰기(blank)를 통해 계산해 반환한다.
-	// 목록 요소와 유사한 형태의 CODEBLOCK이라면 해당 결과를 반환한다.
-	getListLevel: function(blank, nested) {
+	getListLevel: function(space, nested) {
 		// 이 줄의 들여쓰기가 몇 개의 공백으로 이루어져있는지 확인한다.
-		var space = this.getIndentLevel(blank),
-		    result = new RICALE.HMD.TranslateSentence(),
+		var result = new RICALE.HMD.TranslateSentence(),
 		    levels, now, exist, i;
+
+		console.log("space", space);
 
 		if(this.listLevel[nested] == undefined) {
 			this.listLevel[nested] = Array();
@@ -503,146 +460,7 @@ RICALE.HMD.Decoder.prototype = {
 			this.listLevel[i] = Array();
 		}
 
-		return result;
-	},
-
-	// 들여쓰기(blank)가 몇 개의 공백(space)인지 확인해 결과를 반환한다.
-	// 탭(tab) 문자는 4개의 공백으로 계산한다.
-	getIndentLevel: function(blank) {
-		var indent = blank.match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g),
-		    space = 0, i;
-
-		if(indent != null) {
-			for(i = 0; i < indent.length; i++) {
-				if(indent[i].match(/^[ ]{1,3}$/) != null) {
-					space += indent[i].length;
-				} else {
-					space += 4;
-				}
-			}
-		}
-
-		return space;
-	},
-
-	// CODEBLOCK의 정규 표현식과 일치한 결과(line)를
-	// 사용하기 적절한 결과 값으로 변환해 반환한다.
-	getCodeblockResult: function(line, result) {
-		result.tag   = this.CODEBLOCK;
-		result.child = line[2];
-		return result;
-	},
-
-	isContinuedList: function(string, now) {
-		var result = new RICALE.HMD.TranslateSentence(),
-		    prev = this.previousLine(now),
-		    above = this.aboveLineExceptBlank(now),
-		    line = string.match(this.regExpContinuedList);
-
-		if(prev != null && prev.level != 0) {
-			return true;
-		} else if(prev != null && prev.tag == this.BLANK && above != null && above.level != 0 && line != null) {
-			return true;
-		}
-
-		return false;
-	},
-
-	// 문자열(string)이 목록 요소로부터 늘어진 블록 요소인지 확인해 결과를 반환한다.
-	matchContinuedList: function(string, now) {
-		var result = new RICALE.HMD.TranslateSentence(),
-		    prev = this.previousLine(now),
-		    above = this.aboveLineExceptBlank(now),
-		    line = string.match(this.regExpContinuedList);
-
-		if(prev != null && prev.level != 0) {
-			if(prev.quote > 0) {
-				result = this.matchBlockquotes(string);
-			} else {
-				result.child = string;
-			}
-
-			if(prev.tag == this.UL || prev.tag == this.OL) {
-				result.tag = this.P;
-			} else {
-				result.tag = prev.tag;
-			}
-			result.level = prev.level;
-
-			if(result.quote < prev.quote) {
-				result.quote = prev.quote;
-			}
-			return result;
-		} else if(prev != null && prev.tag == this.BLANK && above != null && above.level != 0 && line != null) {
-			result = this.match(line[3], now);
-			result.level += above.level;
-
-			return result;
-		}
-
-		return null;
-	},
-
-	// 빈 줄을 제외한 바로 윗줄을 얻는다.
-	// 존재하지 않으면 null을 반환한다.
-	aboveLineExceptBlank: function(index) {
-		for(var i = index - 1; i >= 0; i--) {
-			if(this.result[i].tag != this.BLANK) {
-				return this.result[i];
-			}
-		}
-
-		return null;
-	},
-
-	// 빈 줄을 제외한 바로 아랫줄을 얻는다.
-	// 존재하지 않으면 null을 반환한다.
-	belowExceptBlank: function(index) {
-		for(var i = index + 1; i < this.result.length; i++) {
-			if(this.result[i].tag != this.BLANK) {
-				return this.result[i];
-			}
-		}
-
-		return null;
-	},
-
-	// 빈 줄을 포함한 바로 윗줄을 얻는다.
-	// 존재하지 않으면 null을 반환한다.
-	previousLine: function(index) {
-		return index > 1 ? this.result[index - 1] : null;
-	},
-
-	// 빈 줄을 포함한 바로 아랫줄을 얻는다.
-	// 존재하지 않으면 null을 반환한다.
-	nextLine: function(index) {
-		return index < this.result.length - 1 ? this.result[index + 1] : null;
-	},
-
-	// 현재 이어지고 있는 목록 요소가 끝나고 난 뒤의 줄 번호를 얻는다.
-	idxBelowThisList: function(index) {
-		for(var i = index + 1; i < this.result.length; i++) {
-			if(this.result[i].level == 0) {
-				return i;
-			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
-				return null;
-			}
-		}
-
-		return null;
-	},
-
-	// 현재 이어지고 있는 목록 요소가 시작하기 전의 줄 번호를 얻는다.
-	idxAboveThisList: function(index) {
-		for(var i = index - 1; i >= 0; i--) {
-			if(this.result[i].level == 0) {
-				return i;
-			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
-				return null;
-			}
-		}
-
-		return null;
+		return result.level;
 	},
 
 	// 블록 요소에 대한 해석이 끝난 줄의 본문(string)의 인라인 문법들을 찾아 바로 번역한다.
@@ -715,45 +533,62 @@ RICALE.HMD.Decoder.prototype = {
 	// this.translate에서 바로 하지 않는 이유는
 	// 전후 줄의 상태에 따라 번역이 달라질 수 있기 때문이다.
 	decode: function() {
-		var string = "", line, r, listNested = Array(), nowQuotes = 0, startP = false, startCodeblock = false, i, j, k,
-		    prev;
+		var string = "", line, r, listNested = Array(), nowQuotes = 0, startP = false, startCodeblock = false, i, j, k, level;
 
 		// 줄 단위로 확인한다.
 		for(i = 0; i < this.result.length; i++) {
 			line = "";
+			level = 0;
 			r = this.result[i];
-			prev = this.previousLine(i);
+			r.string = this.decodeInline(r.string);
 
-			if(r.tag != this.P && startP) {
+			if(typeof(r.grammar[0]) == "number") {
+				if(r.grammar[1] == this.OL || r.grammar[1] == this.UL) {
+					level = this.getListLevel(r.grammar[0], 0);
+				}
+
+				tag = r.grammar[1];
+			} else {
+				if(r.grammar[0] == this.OL || r.grammar[0] == this.UL) {
+					level = this.getListLevel(0, 0);
+				}
+
+				tag = r.grammar[0];
+			}
+
+			console.log(r.grammar, tag, level, r.string);
+
+
+			if(tag != undefined && startP) {
 				line += "</p>";
 				startP = false;
 			}
 
-			if(r.tag != this.CODEBLOCK && startCodeblock) {
+			if(tag != this.CODEBLOCK && startCodeblock) {
 				line += "</code></pre>";
 				startCodeblock = false;
 			}
 
 			// blockquote, ul/ol/li 시작/종료 여부를 판단.
-			if(r.tag != this.BLANK) {
+			if(tag != this.BLANK) {
 
-				if(r.level != 0) {
-					if(r.level < listNested.length) {
-						for(j = listNested.length - 1; j >= r.level; j--) {
+				if(level != 0) {
+					if(level < listNested.length) {
+						for(j = listNested.length - 1; j >= level; j--) {
 							line += "</li></" + listNested[j] + ">";
 						}
-						listNested = listNested.slice(0, r.level);
-					} else if(r.level == listNested.length){
-						if(r.tag == this.UL || r.tag == this.OL) {
+						listNested = listNested.slice(0, level);
+					} else if(level == listNested.length){
+						if(tag == this.UL || tag == this.OL) {
 							line += "</li>";
-							if(r.tag != listNested[listNested.length - 1]) {
-								line += "</" + listNested[listNested.length - 1] + ">";
+							if(tag != listNested[listNested.length - 1]) {
+							    line += "</" + listNested[listNested.length - 1] + ">";
 							}
 						}
 					}
 				}
 
-				if(r.level == 0 && listNested.length != 0) {
+				if(level == 0 && listNested.length != 0) {
 					for(j = listNested.length - 1; j >= 0; j-- ) {
 						line += "</li></" + listNested[j] + ">";
 					}
@@ -761,9 +596,10 @@ RICALE.HMD.Decoder.prototype = {
 				}
 
 				// blockquote의 시작/종료 여부를 판단.
-				if(r.quote < nowQuotes && prev != null && prev.tag == this.BLANK) {
+				if(r.quote < nowQuotes) {
 					for(j = 0; j < nowQuotes - r.quote; j++) {
 						line += "</blockquote>"
+
 					}
 					nowQuotes = r.quote;
 				} else if(r.quote > nowQuotes) {
@@ -775,60 +611,64 @@ RICALE.HMD.Decoder.prototype = {
 				} 
 
 				// ul/ol/li의 시작 여부를 판단.
-				if(r.level != 0) {
-					if(r.level > listNested.length) {
-						k = r.level - listNested.length;
+				if(level != 0) {
+					if(level > listNested.length) {
+						k = level - listNested.length;
 						for(j = 0; j < k; j++) {
-							listNested[listNested.length] = r.tag;
-							line += "<" + r.tag + "><li>";
+							listNested[listNested.length] = tag;
+							line += "<" + tag + "><li>";
 						}
 
 					} else {
-						if(r.tag == this.UL || r.tag == this.OL) {
-							if(r.level == listNested.length && r.tag != listNested[listNested.length - 1]) {
-								line += "<" + r.tag + ">";
-								listNested[listNested.length - 1] = r.tag;
+						if(tag == this.UL || tag == this.OL) {
+							if(level == listNested.length && tag != listNested[listNested.length - 1]) {
+							    line += "<" + tag + ">";
+							        listNested[listNested.length - 1] = tag;
+							    }
+							    line += "<li>";
 							}
-							line += "<li>";
 						}
 					}
 				}
-			}
 
-			switch(r.tag) {
+				switch(tag) {
 				// 제목(h1, h2, h3, h4, h5, h6) 혹은 수평선(hr)일 때의 번역.
 				// 내용이 짧은 관계로 붙여서 작성햇다.
-				case this.H1:    line += "<h1>" + r.child + "</h1>"; break;
-				case this.H2:    line += "<h2>" + r.child + "</h2>"; break;
-				case this.H3:    line += "<h3>" + r.child + "</h3>"; break;
-				case this.H4:    line += "<h4>" + r.child + "</h4>"; break;
-				case this.H5:    line += "<h5>" + r.child + "</h5>"; break;
-				case this.H6:    line += "<h6>" + r.child + "</h6>"; break;
+				case this.H1:    line += "<h1>" + r.string + "</h1>"; break;
+				case this.H2:    line += "<h2>" + r.string + "</h2>"; break;
+				case this.H3:    line += "<h3>" + r.string + "</h3>"; break;
+				case this.H4:    line += "<h4>" + r.string + "</h4>"; break;
+				case this.H5:    line += "<h5>" + r.string + "</h5>"; break;
+				case this.H6:    line += "<h6>" + r.string + "</h6>"; break;
 				case this.HR:    line += "<hr/>"; break;
 				case this.BLANK: line += "\n"; break;
-				case this.P:
-					if(!startP) {
-						line += "<p>";
-						startP = true;
-					}
-					line += r.child;
-					break;
-
 				case this.CODEBLOCK:
 					if(!startCodeblock) {
 						line += "<pre><code>";
 						startCodeblock = true;
 					}
-					line += r.child;
+					line += r.string;
 					break;
 
-				default: line += r.child; break;
+				case undefined:
+					if(!startP) {
+						line += "<p>";
+						startP = true;
+					}
+					line += r.string;
+					break;
+
+				default: line += r.string; break;
 			}
 
-			//console.log(line);
+			if((this.listLevel.length > 0)
+				&& tag != this.BLANK
+				&& level == 0) {
+				this.listLevel[0] = Array();
+			}
+
 			string += line;
 		}
-
 		$(this.targetSelector).html(string);
 	}
 } // RICALE.HMD.Decoder.prototype
