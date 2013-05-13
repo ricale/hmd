@@ -221,11 +221,15 @@ RICALE.HMD.Decoder.prototype = {
 
 			// 이전까지 목록 요소들이었다가
 			// 현재 줄에서 목록 요소가 아니게 되면 목록 관련 계산 배열을 초기화한다.
-			if(this.listLevel.length > 0
-				&& this.result[now].tag != this.BLANK
-				&& this.result[now].level == 0) {
-				this.listLevel = Array();
-				this.listLevelInBlockquote = Array();
+			if(this.result[now].tag != this.BLANK && this.result[now].level == 0) {
+				if(this.listLevel.length > 0) {
+					this.listLevel = Array();
+					this.listLevelInBlockquote = Array();
+				}
+
+				if(this.listLevelInBlockquote.length > 0) {
+					this.listLevelInBlockquote = Array();
+				}
 			}
 
 			now++;
@@ -475,6 +479,8 @@ RICALE.HMD.Decoder.prototype = {
 			this.listLevel = levels;
 		}
 
+		levels = null;
+
 		return result;
 	},
 
@@ -521,10 +527,10 @@ RICALE.HMD.Decoder.prototype = {
 
 			// a
 			if(line != null && prev.tag == this.CODEBLOCK && this.getIndentLevel(line[1]) == 8) {
-				if((this.listLevel.length - 1) * 4 <= this.getIndentLevel(line[2])) {
+				if((prev.level - 1) * 4 <= this.getIndentLevel(line[2])) {
 					result.tag = this.CODEBLOCK;
-					result.child = line[2].slice((this.listLevel.length - 1) * 4) + line[3];
-					result.level = this.listLevel.length;
+					result.child = line[2].slice((prev.level - 1) * 4) + line[3];
+					result.level = prev.level;
 					result.quote = last.quote;
 
 					return result;
@@ -533,7 +539,7 @@ RICALE.HMD.Decoder.prototype = {
 
 			result = this.matchBlockquotes(string);
 			result.tag = this.P;
-			result.level = this.listLevel.length;
+			result.level = prev.level;
 
 			return result;
 
@@ -545,14 +551,27 @@ RICALE.HMD.Decoder.prototype = {
 			//   a. 목록 요소 내부의 코드 블록이거나
 			//   b. 목록 요소 내부의 인용 블록이거나
 			//   c. 목록 요소 내부의 문단 요소이다.
-		} else if(above != null && above.level != 0 && line !== null) {
+		} else if(above != null && above.level != 0) {
+
+			if(line == null) {
+				result = this.matchBlockquotes(string);
+				if(result.quote == above.quote) {
+					line = result.child.match(this.regExpContinuedList);
+
+					if(line == null) {
+						return false;
+					}
+				} else {
+					return false;
+				}
+			}
 
 			// a
 			if(this.getIndentLevel(line[1]) == 8) {
-				if((this.listLevel.length - 1) * 4 <= this.getIndentLevel(line[2])) {
+				if((above.level - 1) * 4 <= this.getIndentLevel(line[2])) {
 					result.tag = this.CODEBLOCK;
-					result.child = line[2].slice((this.listLevel.length - 1) * 4) + line[3];
-					result.level = this.listLevel.length;
+					result.child = line[2].slice((above.level - 1) * 4) + line[3];
+					result.level = above.level;
 					result.quote = last.quote;
 
 					return result;
@@ -564,7 +583,8 @@ RICALE.HMD.Decoder.prototype = {
 			indent = this.getIndentLevel(line[1] + line[2]);
 			indent = indent / 4 - indent / 4 % 1 + (indent % 4 != 0);
 
-			result.level += indent > this.listLevel.length ? this.listLevel.length : indent;
+			result.level += indent > above.level ? above.level : indent;
+			result.quote = above.quote;
 
 			return result;
 		}
@@ -588,13 +608,13 @@ RICALE.HMD.Decoder.prototype = {
 	// 빈 줄을 제외한 바로 아랫줄을 얻는다.
 	// 존재하지 않으면 null을 반환한다.
 	belowExceptBlank: function(index) {
-	for(var i = index + 1; i < this.result.length; i++) {
-		if(this.result[i].tag != this.BLANK) {
-			return this.result[i];
+		for(var i = index + 1; i < this.result.length; i++) {
+			if(this.result[i].tag != this.BLANK) {
+				return this.result[i];
+			}
 		}
-	}
 
-	return null;
+		return null;
 	},
 
 	// 빈 줄을 포함한 바로 윗줄을 얻는다.
@@ -613,7 +633,7 @@ RICALE.HMD.Decoder.prototype = {
 	idxBelowThisList: function(index) {
 		for(var i = index + 1; i < this.result.length; i++) {
 			if(this.result[i].level == 0) {
-				return i;
+				return i + 1 < this.result.length ? i : null;
 			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
 				return null;
 			}
@@ -626,7 +646,7 @@ RICALE.HMD.Decoder.prototype = {
 	idxAboveThisList: function(index) {
 		for(var i = index - 1; i >= 0; i--) {
 			if(this.result[i].level == 0) {
-				return i;
+				return i - 1 >= 0 ? i : null ;
 			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
 				return null;
 			}
@@ -688,8 +708,6 @@ RICALE.HMD.Decoder.prototype = {
 		// br 요소가 있는지 확인하고 번역
 		string = string.replace(this.regExpBreak, '<br/>');
 
-		string = string.replace(this.regExpEscape2, '$1');
-
 		// 사용자가 추가적인 인라인 문법 번역 함수를 추가했다면 실행한다.
 		if(this.additionalDecodeInline != null) {
 			string = this.additionalDecodeInline(string);
@@ -708,206 +726,181 @@ RICALE.HMD.Decoder.prototype = {
 	// this.translate에서 바로 하지 않는 이유는
 	// 전후 줄의 상태에 따라 번역이 달라질 수 있기 때문이다.
 	decode: function() {
-		var string = "",
-			// li 태그가 시작된 상태인가
-			beginLI = false,
-			// p 태그가 시작된 상태인가
-			beginP = false,
-			// 코드블록(pre태그와 code태그의 중첩)이 시작된 상태인가.
-			beginCodeblock = false,
-			// 인용 블록의 현재 중첩 레벨
-			blockquoteLevel = 0,
-			// 중첩된 목록 요소의 순서 스택 (ul/ol)
-			listElements = Array(),
-			i, j, line, r, above, prev, below, next, idxAboveList, idxBelowList, level, quote;
+		var string = "", 
+		    listNested = Array(),
+		    nowQuotes = 0,
+		    startP = false,
+		    startList = false,
+		    startCodeblock = false,
+		    line, r, i, j, k, prev, next, above, below,
+		    idxAbove, idxBelow, aboveIdxAbove, belowIdxBelow;
 
 		// 줄 단위로 확인한다.
 		for(i = 0; i < this.result.length; i++) {
 			line = "";
-			r = this.result[i],
-			above = this.aboveExceptBlank(i),
-			prev = this.previousLine(i),
-			below = this.belowExceptBlank(i),
+			r = this.result[i];
+			prev = this.previousLine(i);
 			next = this.nextLine(i);
+			above = this.aboveExceptBlank(i);
+			below = this.belowExceptBlank(i);
 
-			// 코드블록이라면 내부의 인라인 요소를 번역할 필요가 없다.
-			if(r.tag != this.CODEBLOCK) {
-				r.child = this.decodeInline(r.child);
+			if(r.tag != this.P && startP) {
+				line += "</p>";
+				startP = false;
 			}
 
-			// 인용이 있고 이전 줄의 인용보다 레벨이 높다면
-			// 높은 레벨 만큼 <blockquote> 태그를 추가한다.
-			if(r.quote > 0 && r.quote > blockquoteLevel) {
-				for(j = 0; j < r.quote - blockquoteLevel; j++) {
-					line += "<blockquote>";
+			if(r.tag != this.CODEBLOCK && startCodeblock) {
+				line += "</code></pre>";
+				startCodeblock = false;
+			}
+
+			// blockquote, ul/ol/li 시작/종료 여부를 판단.
+			if(r.tag != this.BLANK) {
+
+				if(r.level != 0) {
+					if(r.level < listNested.length) {
+						for(j = listNested.length - 1; j >= r.level; j--) {
+							line += "</li></" + listNested[j] + ">";
+						}
+						listNested = listNested.slice(0, r.level);
+
+					} else if(above && r.quote < above.quote) {
+						for(j = listNested.length - 1; j >= 0; j--) {
+							line += "</li></" + listNested[j] + ">";
+						}
+						listNested = Array();
+
+					} else if(r.level == listNested.length){
+						if(r.tag == this.UL || r.tag == this.OL) {
+							line += "</li>";
+							if(r.tag != listNested[listNested.length - 1]) {
+								line += "</" + listNested[listNested.length - 1] + ">";
+							}
+						}
+
+					}
 				}
 
-				blockquoteLevel = r.quote;
+				if(r.level == 0 && listNested.length != 0) {
+					for(j = listNested.length - 1; j >= 0; j-- ) {
+						line += "</li></" + listNested[j] + ">";
+					}
+					listNested = Array();
+				}
+
+				// blockquote의 시작/종료 여부를 판단.
+				if(r.quote < nowQuotes && prev != null && prev.tag == this.BLANK) {
+					for(j = 0; j < nowQuotes - r.quote; j++) {
+						line += "</blockquote>"
+					}
+					nowQuotes = r.quote;
+				} else if(r.quote > nowQuotes) {
+					for(j = 0; j < r.quote - nowQuotes; j++) {
+						line += "<blockquote>";
+					}
+					nowQuotes = r.quote;
+
+				} 
+
+				// ul/ol/li의 시작 여부를 판단.
+				if(r.level != 0) {
+					if(r.level > listNested.length) {
+						k = r.level - listNested.length;
+						for(j = 0; j < k; j++) {
+							listNested[listNested.length] = r.tag;
+							line += "<" + r.tag + "><li>";
+						}
+						startLI = true;
+
+					} else {
+						if(r.tag == this.UL || r.tag == this.OL) {
+							if(r.level == listNested.length && r.tag != listNested[listNested.length - 1]) {
+								line += "<" + r.tag + ">";
+								listNested[listNested.length - 1] = r.tag;
+							}
+							line += "<li>";
+							startLI = true;
+						}
+					}
+
+					if(startLI && !startP && r.tag != this.CODEBLOCK) {
+						if(next && below && next.tag == this.BLANK && below.level == r.level) {
+							line += "<p>";
+							startP = true;
+						
+						} else if(prev && above && prev.tag == this.BLANK && above.level == r.level) {
+							line += "<p>";
+							startP = true;
+						}
+
+						else {
+							idxAbove = this.idxAboveThisList(i);
+							aboveIdxAbove = this.aboveExceptBlank(idxAbove);
+							idxBelow = this.idxBelowThisList(i);
+							belowIdxBelow = this.belowExceptBlank(idxBelow);
+
+							if(idxAbove && aboveIdxAbove && this.result[idxAbove].tag == this.BLANK && aboveIdxAbove.level == r.level) {
+								line += "<p>";
+								startP = true;
+
+							} else if(idxBelow && belowIdxBelow && this.result[idxBelow].tag == this.BLANK && belowIdxBelow.level == r.level) {
+								line += "<p>";
+								startP = true;
+
+							} else {
+								for(j = i + 1; j < idxBelow; j++) {
+									if(this.result[j].tag == this.P) {
+										this.result[j].tag = undefined;
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 
+			if(r.tag == this.CODEBLOCK) {
+				r.child = r.child.replace(/[<>&]/g, function(whole) {
+					switch(whole) {
+						case '<': return '&lt;';
+						case '>': return '&gt;';
+						case '&': return '&amp;';
+					}
+				});
+			} else {
+				r.child = this.decodeInline(r.child);
+			}
 
 			switch(r.tag) {
 				// 제목(h1, h2, h3, h4, h5, h6) 혹은 수평선(hr)일 때의 번역.
 				// 내용이 짧은 관계로 붙여서 작성햇다.
-				case this.H1: line += "<h1>" + r.child + "</h1>"; break;
-				case this.H2: line += "<h2>" + r.child + "</h2>"; break;
-				case this.H3: line += "<h3>" + r.child + "</h3>"; break;
-				case this.H4: line += "<h4>" + r.child + "</h4>"; break;
-				case this.H5: line += "<h5>" + r.child + "</h5>"; break;
-				case this.H6: line += "<h6>" + r.child + "</h6>"; break;
-				case this.HR: line += "<hr/>"; break;
-
-				// 빈 줄일 때의 번역.
-				case this.BLANK:
-
-					// 윗 줄이 코드블록이었거나 현재 인용 요소가 존재하고 있다면 공백도 내용에 추가한다.
-					if((above != null && below != null && above.tag == this.CODEBLOCK && below.tag == this.CODEBLOCK)
-						|| r.quote != 0) {
-						line += r.child;
-					}
-
-					break;
-
-				// 목록(ul, ol)일 때의 번역.
-				case this.UL:
-				case this.OL:
-					// 목록 레벨이 이전보다 높아졌다면 높아진 만큼 <ol> 혹은 <ul> 추가
-					if(listElements.length < r.level) {
-						for(j = listElements.length; j < r.level; j++) {
-							listElements[j] = r.tag;
-							line += listElements[j] == this.UL ? "<ul>" : "<ol>";
-						}
-					}
-
-					line += "<li>";
-					beginLI = true;
-
-					idxAboveList = this.idxAboveThisList(i);
-					idxBelowList = this.idxBelowThisList(i);
-
-					// a. 1. 현재 목록 블록이 끝나고 난 후의 줄이 존재 하고 그 줄이 빈 줄일 때
-					//    2. 그 다음 줄이 존재하고 그 줄이 목록 블록일 때
-					// b. 1. 현재 목록 블록이 시작하기 전의 줄이 존재하고 그 줄이 빈 줄일때
-					//    2. 그 전 줄이 존재하고 그 줄이 목록 블록일 때
-					// 이 목록 요소의 내부는 문단 요소이다.
-					if((idxBelowList != null && this.result[idxBelowList].tag == this.BLANK && idxBelowList + 1 < this.result.length
-						&& this.result[idxBelowList + 1].level == r.level)
-						|| (idxAboveList != null && this.result[idxAboveList].tag == this.BLANK && idxAboveList - 1 >= 0
-						&& this.result[idxAboveList - 1].level == r.level)) {
-
-						line += "<p>" + r.child;
-						beginP = true;
-
-						// 다음 줄도 문단 요소가 아니라면 바로 닫는다.
-						if(next == null || next.tag != this.P) {
-							line += "</p>";
-							beginP = false;
-						}
-
-					} else {
-					    line += r.child;
-					}
-
-					break;
-
-				// 코드 블록(pre와 code의 중첩)일 때의 번역.
-				case this.CODEBLOCK:
-					// 코드블록이 시작하지 않은 가운데 코드블록 요소가 나왔다면 <pre><code> 추가
-					if(!beginCodeblock) {
-					    line += "<pre><code>";
-					    beginCodeblock = true;
-					}
-
-					line += r.child + "\r\n";
-
-					// a. 1. 현재 목록 레벨이 0이고 (목록 요소 내부이고)
-					//    2. a. 공백을 포함한 바로 아랫 줄이 존재하지 않거나
-					//       b. 존재하지만 그 줄이 코드블록이 아니거나
-					//       c. 그 줄의 인용 블록 레벨이 현재 줄 보다 크다면
-					// b. 1. 현재 목록 레벨이 0이 아니고 (목록 요소 외부이고)
-					//    2. a. 공백을 제외한 다음 줄이 존재하지 않거나
-					//       b. 존재하지만 그 줄이 코드 블록이 아니라면
-					// 코드 블록을 닫는다.
-					if((r.level == 0 && (below == null || below.tag != this.CODEBLOCK || below.quote > r.quote))
-					    || (r.level != 0 && (next == null || next.tag != this.CODEBLOCK))) {
-					    line += "</code></pre>"
-					    beginCodeblock = false;
-					}
-
-					break;
-
-					// 목록(p)일 때의 번역.
+				case this.H1:    line += "<h1>" + r.child + "</h1>"; break;
+				case this.H2:    line += "<h2>" + r.child + "</h2>"; break;
+				case this.H3:    line += "<h3>" + r.child + "</h3>"; break;
+				case this.H4:    line += "<h4>" + r.child + "</h4>"; break;
+				case this.H5:    line += "<h5>" + r.child + "</h5>"; break;
+				case this.H6:    line += "<h6>" + r.child + "</h6>"; break;
+				case this.HR:    line += "<hr/>"; break;
+				case this.BLANK: line += "\n"; break;
 				case this.P:
-					// 문단이 시작하지 않고 목록아이템 요소도 시작하지 않은 가운데 목록 요소가 나왔다면 <p> 추가
-					if(!beginP && !beginLI) {
-					    line += "<p>";
-					    beginP = true;
+					if(!startP) {
+						line += "<p>";
+						startP = true;
 					}
-
 					line += r.child;
+				break;
 
-					// 문단이 시작된 상태에서
-					if(beginP) {
-					    // a. 1. 현재 목록 레벨이 0이고 (목록 요소 내부이고)
-					    //    2. a. 공백을 포함한 바로 아랫 줄이 존재하지 않거나
-					    //       b. 존재하지만 그 줄이 문단이 아니거나
-					    //       c. 그 줄의 인용 블록 레벨이 현재 줄 보다 크다면
-					    // b. 1. 현재 목록 레벨이 0이 아니고 (목록 요소 외부이고)
-					    //    2. a. 공백을 제외한 다음 줄이 존재하지 않거나
-					    //       b. 존재하지만 그 줄이 문단이 아니라면
-					    // 문단을 닫는다.
-					    if((r.level == 0 && (next == null || next.tag != this.P || below.quote > r.quote))
-					            || (r.level != 0 && (next == null || next.tag != this.P))) {
-					            line += "</p>";
-					            beginP = false;
-					    }
+				case this.CODEBLOCK:
+					if(!startCodeblock) {
+						line += "<pre><code>";
+						startCodeblock = true;
 					}
-					break;
+					line += r.child + "\n";
+				break;
 
-				default:
-					line += r.child;
-					break;
+				default: line += r.child; break;
 			}
-
-
-			// 1. li가 열린 상태에서
-			// 2. a. 공백을 제외한 다음 줄이 존재하지 않거나
-			//    b. 존재하지만 그 줄의 목록 레벨이 0이거나 (목록 블록이 끝났거나)
-			//    c. 1. 그 줄의 목록 레벨이 현재 목록 레벨보다 작거나 같은데
-			//       2. 그 줄이 OL이거나 OL이라면
-			// li를 닫는다.
-			if(beginLI && (below == null || below.level == 0 || (below.level <= r.level) && (below.tag == this.UL || below.tag == this.OL))) {
-				line += "</li>";
-				beginLI = false;
-			}
-
-			// 목록 레벨이 이전보다 낮아졌다면 낮아진 만큼 목록 요소를 닫는다.
-			level = below != null ? below.level : 0;
-			if(listElements.length > level) {
-				if(beginLI) {
-					line += "</li>";
-					beginLI = false;
-				}
-
-				for(j = listElements.length - 1; j >= level; j--) {
-					line += listElements[j] == this.UL ? "</ul>" : "</ol>";
-				}
-				listElements = listElements.slice(0, level);
-			}
-
-			// a. 빈 줄을 제외한 아래 줄이 없거나 (마지막 줄이거나)
-			// b. 1. 존재하지만 그 줄이 이 줄 인용보다 레벨이 낮고 
-			//    2. 빈 줄을 포함한 바로 아래 줄이 빈 줄이며 인용 레벨이 0이라면
-			// 인용 블록을 닫는다.
-			if(below == null || (below.quote < blockquoteLevel && (next.tag == this.BLANK && next.quote == 0))) {
-				quote = below != null ? below.quote : 0
-				for(j = 0; j < blockquoteLevel - quote; j++) {
-					line += "</blockquote>";
-				}
-
-				blockquoteLevel = quote;
-			}
-
+			//console.log(line);
 			string += line;
 		}
 
