@@ -5,6 +5,8 @@
 
 // ## 사용법
 // RICALE.hmd.run(sourceTextareaSelector, targetElementSelector)
+// 상세 정보는 git 저장소(https://bitbucket.org/ricale/handmade-markdown-decoder)
+//  혹은 comfycastle 블로그 글(http://comfycastle.net/blog/136) 참고
 
 if(typeof(RICALE) == typeof(undefined)) {
 	// 다른 사람과의 이름 충돌을 피하기 위한 최상위 네임스페이스
@@ -635,7 +637,7 @@ RICALE.HMD.Decoder.prototype = {
 			if(this.result[i].level == 0) {
 				return i + 1 < this.result.length ? i : null;
 			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
-				return null;
+				return i != index + 1 ? i : null;
 			}
 		}
 
@@ -648,7 +650,7 @@ RICALE.HMD.Decoder.prototype = {
 			if(this.result[i].level == 0) {
 				return i - 1 >= 0 ? i : null ;
 			} else if(this.result[i].tag == this.UL || this.result[i].tag == this.OL) {
-				return null;
+				return i != index - 1 ? i : null;
 			}
 		}
 
@@ -831,9 +833,8 @@ RICALE.HMD.Decoder.prototype = {
 						} else if(prev && above && prev.tag == this.BLANK && above.level == r.level) {
 							line += "<p>";
 							startP = true;
-						}
-
-						else {
+							
+						} else {
 							idxAbove = this.idxAboveThisList(i);
 							aboveIdxAbove = this.aboveExceptBlank(idxAbove);
 							idxBelow = this.idxBelowThisList(i);
@@ -900,7 +901,7 @@ RICALE.HMD.Decoder.prototype = {
 
 				default: line += r.child; break;
 			}
-			//console.log(line);
+
 			string += line;
 		}
 
