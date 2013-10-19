@@ -1,0 +1,36 @@
+html, body {
+    height:90%;
+}
+
+#container {
+    height:95%;
+}
+
+#header h1,
+#header .desc {
+    display:inline;
+}
+
+#source {
+    width:49%;
+    height:100%;
+    display:inline;
+    margin:0px;
+
+    border:1px solid #000;
+}
+
+#target {
+    width:49%;
+    height:99%;
+    float:right;
+    margin:0px;
+
+    overflow:auto; 
+    border:1px solid #000;
+    background-color:#EEE;
+}
+
+#clear {
+    clear:both;
+}

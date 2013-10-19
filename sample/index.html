@@ -1,0 +1,44 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link type="text/css" rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="jquery-1.9.1.js"></script>
+    <script type="text/javascript" src="../hmd.js"></script>
+    <script type="text/javascript" src="../hmd.ricaleinline.js"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+        RICALE.hmd.run('#source', '#target');
+    });
+    </script>
+</head>
+
+<body>
+    <div id="header">
+        <h1>:hme</h1>
+        <div class="desc">handmade markdown editor</div>
+    </div>
+
+    <div id="container">
+    <textarea id="source">
+### hme
+이 페이지는 __hmd__ ,,(handmade markdown decoder),,를 사용한 마크다운 웹 에디터입니다.
+마크다운 문법의 글을 HTML 문법으로 변환, 화면에 출력하는 기능을 갖고 있습니다.
+
+- 마크다운 문법의 사용 방법이 궁금하신 분은 [위키백과:마크다운][wiki]을 참고해주세요.
+- 마크다운 문법의 세부 상세가 궁금하신 분은 [이 사이트][markdown]를 참고해주세요. (영문)
+- hmd에 대해 궁금하신 분은 [hmd의 git 원격 저장소][hmd git] 혹은 [블로그 글][hmd post]을 참고해주세요.
+
+버그 혹은 문의사항은 ricale@hanmail.net으로 문의주세요.
+
+[wiki]: http://ko.wikipedia.org/wiki/마크다운
+[markdown]: http://daringfireball.net/projects/markdown/syntax
+[hmd git]: https://bitbucket.org/ricale/handmade-markdown-decoder
+[hmd post]: http://comfycastle.net/blog/136
+    </textarea>
+    <div id="target" class="decorate_link">
+    </div>
+    <div id="clear">
+    </div>
+    </div>
+</body>
+</html>
