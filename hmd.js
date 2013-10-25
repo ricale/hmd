@@ -224,9 +224,7 @@ RICALE.HMD.Decoder.prototype = (function() {
 
             var isThisReallyListElement = function(line) {
 
-                var r = getListLevel(line[1], sentence.quote != 0),
-
-                getListLevel = function(blank, isInBq) {
+                var getListLevel = function(blank, isInBq) {
                     // 이 줄의 들여쓰기가 몇 개의 공백으로 이루어져있는지 확인한다.
                     var space = getIndentLevel(blank),
                         result = new RICALE.HMD.TranslateSentence(),
@@ -331,6 +329,8 @@ RICALE.HMD.Decoder.prototype = (function() {
 
                     return result;
                 },
+
+                r = getListLevel(line[1], sentence.quote != 0);
 
                 if(r.tag != CODEBLOCK) {
                     sentence.tag   = r.tag != null ? r.tag : tag;
