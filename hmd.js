@@ -51,15 +51,12 @@ RICALE.HMD.Decoder = function() {
     // 목록 요소의 레벨 계산을 위한 (정수) 배열
     this.listLevel = Array();
     this.listLevelInBlockquote = Array();
-
-    // 사용자가 추가하는 인라인 요소 번역 메서드.
-    this.additionalDecodeInline = null;
 }
 
 RICALE.HMD.Decoder.prototype
 
 RICALE.HMD.Decoder.prototype = (function() {
-    var targetSelector,
+    var targetSelector, additionalDecodeInline,
 
     // 어떤 마크다운 문법이 적용되었는지 구분할 때 쓰일 구분자들 (string) 
     P = "p",
@@ -195,7 +192,8 @@ RICALE.HMD.Decoder.prototype = (function() {
             now++;
         }
 
-        console.log(this.refId)
+
+            console.log(additionalDecodeInline)
 
         decode();
     },
@@ -487,7 +485,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                 return line;
             }
 
-            return null;
+            return line;
         },
 
         matchCodeblock = function() {
@@ -566,8 +564,8 @@ RICALE.HMD.Decoder.prototype = (function() {
             return result;
         }
 
-        if((result = matchReference() != null)) {
-            return setReference(result); // return null
+        if((result = matchReference()) != null) {
+            return setReference(); // return null
         }
 
         if((result = matchCodeblock()) != null) {
@@ -714,11 +712,10 @@ RICALE.HMD.Decoder.prototype = (function() {
         // 단 전체 내용 내에 대응대는 참조 정보가 없다면 번역되지 않는다.
         while((line = regExpLink.exec(string)) != null) {
             id = line[2] == "" ? line[1] : line[2];
+
             if(this.refId[id] != undefined) {
                 string = string.replace(line[0], '<a href="'+this.refId[id]['url']+'" title="'+this.refId[id]['title']+'">'+line[1]+'</a>');
             }
-
-            console.log(line)
 
          }
 
@@ -735,8 +732,8 @@ RICALE.HMD.Decoder.prototype = (function() {
         string = string.replace(regExpBreak, '<br/>');
 
         // 사용자가 추가적인 인라인 문법 번역 함수를 추가했다면 실행한다.
-        if(this.additionalDecodeInline != null) {
-            string = this.additionalDecodeInline(string);
+        if(additionalDecodeInline != null) {
+            string = additionalDecodeInline(string);
         }
 
         string = string.replace(/<(?=[^>]*$)/g, '&lt;');
@@ -976,8 +973,8 @@ RICALE.HMD.Decoder.prototype = (function() {
         // 추가적인 인라인 요소 번역 함수를 설정한다.
         // 이는 기존의 인라인 요소 문법에 대한 확인이 모두 끝난 다음에 실행된다.
         setAdditionalDecodeInlineFunction: function(func) {
-            this.additionalDecodeInline = func;
-        },
+            additionalDecodeInline = func;
+        }
     }
 })(); // RICALE.HMD.Decoder.prototype
 
