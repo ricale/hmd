@@ -9,10 +9,9 @@
 
 ## 1. 기본 정보
 
-* 프로젝트 이름 : handmade markdown decoder (hmd)
-* 구현 언어 : JavaScript (jQuery)
-* 작성자 : ricale
-* 버전 : 0.2.2
+* Dependency : JavaScript (jQuery)
+* Writer : ricale
+* Version : 0.2.3
 
 ## 2. 개요
 
@@ -20,24 +19,34 @@ handmade markdown decoder ,,(hmd),,는 마크다운 문법을 HTML 형식으로 
 
 마크다운 문법은 기본적으로 [이 곳][syntax]의 문법을 따른다. 단 근본적인 문법을 변경하지 않는 선에서 세부사항이 변경될 수 있다. 현재 hmd에서의 마크다운 문법의 상세는 이 문서에서 확인할 수 있다.
 
-이 문서는 hmd의 [git 저장소의 README][git] 와 [comfycastle blog에 작성된 글][blog]에서 볼 수 있다.
-
-hmd는 [hme][] ,,(handmade markdown editor),, 에서 사용해 볼 수 있다.
+이 문서는 hmd의 [git 저장소의 README][git] 와 [작성자의 블로그에 작성된 글][blog]에서 볼 수 있다.
 
 [syntax]: http://daringfireball.net/projects/markdown/syntax
-[git]: https://bitbucket.org/ricale/handmade-markdown-decoder
-[blog]: http://comfycastle.net/blog/136
-[hme]: http://comfycastle.net/hme/
+[git]: https://bitbucket.org/ricale/hmd
+[blog]: http://ricalest.net
+
+### 2.1. 문제점
+
+현재 여러 블록 요소가 중첩되는 형식으로 작성하면 정상적인 결과를 반환하지 않는다. 추후 개선될 예정이다.
 
 ## 3. 사용 방법
 
-아래의 코드로 실행한다.
+### 3.1. run
 
     RICALE.hmd.run(sourceTextareaSelector, targetElementSelector);
 	
 + `sourceTextareaSelector`는 마크다운 문법의 글이 작성되어있는 textarea의 셀렉터이다. 
 + `targetElementSelector`는 HTML로 번역된 결과가 출력될 HTML 요소의 셀렉터이다.
 + 이 메서드를 실행하는 순간 번역이 실행되고 이 후에는 textarea에서 키보드 입력이 있을때마다 textarea의 내용이 다시 번역된다.
+
+### 3.2. translate
+
+    RICALE.hmd.translate(text);
+    
++ `text`는 마크다운 문법으로 작성된 글(문자열)이다.
++ HTML로 변역한 결과 문자열을 반환한다.
+
+### 3.3. setAdditionalDecodeInlineFunction
 
 추가적으로, 아래의 코드로 인라인 문법을 추가할 수 있다. (이는 필수적인 요소가 아니다.)
 
@@ -405,5 +414,5 @@ _단 <> 안의 문자열이 http:// 혹은 https:// 으로 시작해야지만 �
 ## 6. 문서 정보
 
 - 작성자 : ricale
-- 문서버전 : 0.33 (hmd 0.2.2)
-- 작성일 : 2013. 5. 14.
+- 문서버전 : hmd 0.2.3 1
+- 작성일 : 2013. 12. 26.

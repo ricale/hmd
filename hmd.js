@@ -1,12 +1,20 @@
-// # project handmade markdown decoder (hmd)
+// # handmade markdown decoder (hmd)
 //  - written by ricale
-//  - version 0.2.2
+//  - version 0.2.3
 //  - ricale@hanmail.net or kim.kangseong@gmail.com
+
+
+/////////////////////////////////////////
+//
+//               WARNING!
+//
+// 코드가 많이 지저분합니다. 심호흡 하시고, 홧병 주의하시고 읽어주세요.
+//
+/////////////////////////////////////////
 
 // ## 사용법
 // RICALE.hmd.run(sourceTextareaSelector, targetElementSelector)
-// 상세 정보는 git 저장소(https://bitbucket.org/ricale/handmade-markdown-decoder)
-//  혹은 comfycastle 블로그 글(http://comfycastle.net/blog/136) 참고
+// 상세 정보는 git 저장소(https://bitbucket.org/ricale/hmd) 참고
 
 if(typeof(RICALE) == typeof(undefined)) {
     var RICALE = {};
@@ -56,7 +64,7 @@ RICALE.HMD.Decoder = function() {
 RICALE.HMD.Decoder.prototype
 
 RICALE.HMD.Decoder.prototype = (function() {
-    var targetSelector, additionalDecodeInline,
+    var additionalDecodeInline,
 
     // 어떤 마크다운 문법이 적용되었는지 구분할 때 쓰일 구분자들 (string) 
     P = "p",
@@ -192,10 +200,7 @@ RICALE.HMD.Decoder.prototype = (function() {
             now++;
         }
 
-
-            console.log(additionalDecodeInline)
-
-        decode();
+        return decode();
     },
 
     
@@ -233,7 +238,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                         return levels.length == 0;
                     },
 
-                    listExistWithOnlyOneLevel = function() {
+                    existListWithOnlyOneLevel = function() {
                         return levels.length == 1;
                     },
 
@@ -241,7 +246,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                         return space == levels[0];
                     },
 
-                    isParagraphInPrevListItem = function() {
+                    isParagraphContinuedFromPrevListItem = function() {
                         return space >= (now + 1) * 4;
                     },
 
@@ -264,7 +269,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                         }
 
 
-                    } else if(listExistWithOnlyOneLevel()) {
+                    } else if(existListWithOnlyOneLevel()) {
                         if(indentIsSameAsFirstLevelOfList()) {
                             result.level = 1;
 
@@ -276,15 +281,10 @@ RICALE.HMD.Decoder.prototype = (function() {
                             result.tag = CODEBLOCK;
                         }
 
-                    // 현재 목록 레벨이 2 이상 존재하는 상황에서
-                    // a. 공백이 (현재 목록 레벨 + 1) * 4 보다 크면 이 줄은 전 줄의 목록 요소에서 이어지는 문단 요소이다.
-                    // b. 공백이 현재 목록 레벨의 공백보다 크고, (현재 목록 레벨 - 1) * 4 보다도 크면 이 줄은 현재 목록 레벨 + 1이다.
-                    // c. a, b에 포함되지 않고, 현재 목록 레벨의 공백보다 크거나 같으면 이 줄의 목록 레벨은 현재 목록 레벨과 동일하다.
-                    // d. a, b, c에 포함되지 않고, 현재 목록 레벨 이 전의 특정 목록 레벨보다 크거나 같다면 이 줄의 목록 레벨은 해당 목록 레벨과 동일하다.
                     } else {
                         now = levels.length;
 
-                        if(isParagraphInPrevListItem()) {
+                        if(isParagraphContinuedFromPrevListItem()) {
                             result.tag = P;
                             result.level = now;
 
@@ -366,28 +366,34 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         matchContinuedList = function(string, now, last) {
-            var result = new RICALE.HMD.TranslateSentence(),
-                above = aboveExceptBlank(now),
-                prev = previousLine(now),
-                line = string.match(regExpContinuedList),
-                indent;
+            var previousLineIsList = function() { // 바로 윗 줄이 리스트인가
+                return prev != null && prev.level != 0
+            },
 
-            // 1. 빈 줄을 포함한 바로 윗 줄이 존재하는 가운데,
-            // 2. 그 윗줄의 목록 요소 레벨이 0이 아니라면
-            // (=> 목록 요소가 계속 이어지고 있다면)
-            // 이 줄은 목록 요소 내부의 문단 요소이다.
-            if(prev != null && prev.level != 0) {
+            isCodeblock = function() {
+                return line != null && prev.tag == CODEBLOCK && getIndentLevel(line[1]) == 8 && (prev.level - 1) * 4 <= getIndentLevel(line[2])
+            },
 
-                // a
-                if(line != null && prev.tag == CODEBLOCK && getIndentLevel(line[1]) == 8) {
-                    if((prev.level - 1) * 4 <= getIndentLevel(line[2])) {
-                        result.tag = CODEBLOCK;
-                        result.content = line[2].slice((prev.level - 1) * 4) + line[3];
-                        result.level = prev.level;
-                        result.quote = last.quote;
+            listIsContinuedNow = function() { // 공백이 아닌 문장 중 가장 최근의 문장이 리스트인가
+                return above != null && above.level != 0
+            },
 
-                        return result;
-                    }
+            result = new RICALE.HMD.TranslateSentence(),
+            above = aboveExceptBlank(now),
+            prev = previousLine(now),
+            line = string.match(regExpContinuedList),
+            indent;
+
+
+            if(previousLineIsList()) {
+
+                if(isCodeblock()) {
+                    result.tag = CODEBLOCK;
+                    result.content = line[2].slice((prev.level - 1) * 4) + line[3];
+                    result.level = prev.level;
+                    result.quote = last.quote;
+
+                    return result;
                 }
 
                 result = matchBlockquotes(string);
@@ -404,7 +410,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                 //   a. 목록 요소 내부의 코드 블록이거나
                 //   b. 목록 요소 내부의 인용 블록이거나
                 //   c. 목록 요소 내부의 문단 요소이다.
-            } else if(above != null && above.level != 0) {
+            } else if(listIsContinuedNow()) {
 
                 if(line == null) {
                     result = matchBlockquotes(string);
@@ -531,46 +537,25 @@ RICALE.HMD.Decoder.prototype = (function() {
         };
 
 
+        if(isBlank()) return setBlankSentence();
 
-        if(isBlank()) {
-            return setBlankSentence();
-        }
+        if(isUnderlineForH1()) return setPrevLineAsH1(); // return null
 
-        if(isUnderlineForH1()) {
-            return setPrevLineAsH1(); // return null
-        }
+        if(isUnderlineForH2()) return setPrevLineAsH2(); // return null
 
-        if(isUnderlineForH2()) {
-            return setPrevLineAsH2(); // return null
-        }
+        if(isHR()) return setHRSentence();
 
-        if(isHR()) {
-            return setHRSentence();
-        }
+        if((result = matchWithULForm()) != null) return result;
 
-        if((result = matchWithULForm()) != null) {
-            return result;
-        }
+        if((result = matchWithOLForm()) != null) return result;
 
-        if((result = matchWithOLForm()) != null) {
-            return result;
-        }
+        if((result = matchContinuedList(string, now, sentence)) != null) return result;
 
-        if((result = matchContinuedList(string, now, sentence)) != null) {
-            return result;
-        }
+        if((result = matchHeading()) != null) return result;
 
-        if((result = matchHeading()) != null) {
-            return result;
-        }
+        if((result = matchReference()) != null) return setReference(); // return null
 
-        if((result = matchReference()) != null) {
-            return setReference(); // return null
-        }
-
-        if((result = matchCodeblock()) != null) {
-            return result;
-        }
+        if((result = matchCodeblock()) != null) return result;
 
         return setParagraph();
 
@@ -587,9 +572,8 @@ RICALE.HMD.Decoder.prototype = (function() {
 
         while(true) {
             line = result.content.match(regExpBlockquote);
-            if(line == null) {
-                return result;
-            }
+
+            if(line == null) return result;
 
             result.quote += line[1].length;
             result.content = line[2];
@@ -656,6 +640,7 @@ RICALE.HMD.Decoder.prototype = (function() {
         for(var i = index + 1; i < this.result.length; i++) {
             if(this.result[i].level == 0) {
                 return i + 1 < this.result.length ? i : null;
+
             } else if(this.result[i].tag == UL || this.result[i].tag == OL) {
                 return i != index + 1 ? i : null;
             }
@@ -668,7 +653,8 @@ RICALE.HMD.Decoder.prototype = (function() {
     idxAboveThisList = function(index) {
         for(var i = index - 1; i >= 0; i--) {
             if(this.result[i].level == 0) {
-                return i - 1 >= 0 ? i : null ;
+                return i - 1 >= 0 ? i : null;
+
             } else if(this.result[i].tag == UL || this.result[i].tag == OL) {
                 return i != index - 1 ? i : null;
             }
@@ -687,16 +673,11 @@ RICALE.HMD.Decoder.prototype = (function() {
             string = string.replace(line[0], this.replacerForEscapeCharacter[line[1]]);
         }
 
-        // 문자열 내에 strong 요소가 있는지 확인하고 번역
-        string = string.replace(regExpStrong[0], '<strong>$1</strong>');
+        string = string.replace(regExpStrong[0], '<strong>$1</strong>'); // 문자열 내에 strong 요소가 있는지 확인하고 번역
         string = string.replace(regExpStrong[1], '<strong>$1</strong>');
-
-        // 문자열 내에 em 요소가 있는지 확인하고 번역
-        string = string.replace(regExpEM[0], '<em>$1</em>');
+        string = string.replace(regExpEM[0], '<em>$1</em>'); // 문자열 내에 em 요소가 있는지 확인하고 번역
         string = string.replace(regExpEM[1], '<em>$1</em>');
-
-        // 문자열 내에 code 요소가 있는지 확인하고 번역
-        string = string.replace(regExpCode[0], '<code>$1</code>');
+        string = string.replace(regExpCode[0], '<code>$1</code>'); // 문자열 내에 code 요소가 있는지 확인하고 번역
         string = string.replace(regExpCode[1], '<code>$1</code>');
 
         // 문자열 내에 참조 스타일의 img 요소가 있는지 확인하고 번역
@@ -705,31 +686,22 @@ RICALE.HMD.Decoder.prototype = (function() {
             id = line[2] == "" ? line[1] : line[2];
             if(this.refId[id] != undefined){
                 string = string.replace(line[0], '<img src="'+this.refId[id]['url']+'" alt="'+line[1]+'" title="'+this.refId[id]['title']+'">');
-             }
-         }
+            }
+        }
 
         // 문자열 내에 참조 스타일의 a 요소가 있는지 확인하고 번역
         // 단 전체 내용 내에 대응대는 참조 정보가 없다면 번역되지 않는다.
         while((line = regExpLink.exec(string)) != null) {
             id = line[2] == "" ? line[1] : line[2];
-
             if(this.refId[id] != undefined) {
                 string = string.replace(line[0], '<a href="'+this.refId[id]['url']+'" title="'+this.refId[id]['title']+'">'+line[1]+'</a>');
             }
+        }
 
-         }
-
-        // 인라인 스타일의 img 요소가 있는지 확인하고 번역
-        string = string.replace(regExpImgInline, '<img src="$2" alt="$1" title="$3">');
-
-        // 인라인 스타일의 a 요소가 있는지 확인하고 번역
-        string = string.replace(regExpLinkInline, '<a href="$2" title="$3">$1</a>');
-
-        // url 스타일의 a 요소가 있는지 확인하고 번역
-        string = string.replace(regExpLinkAuto, '<a href="$1">$1</a>');
-
-        // br 요소가 있는지 확인하고 번역
-        string = string.replace(regExpBreak, '<br/>');
+        string = string.replace(regExpImgInline, '<img src="$2" alt="$1" title="$3">'); // 인라인 스타일의 img 요소가 있는지 확인하고 번역
+        string = string.replace(regExpLinkInline, '<a href="$2" title="$3">$1</a>');    // 인라인 스타일의 a 요소가 있는지 확인하고 번역
+        string = string.replace(regExpLinkAuto, '<a href="$1">$1</a>');                 // url 스타일의 a 요소가 있는지 확인하고 번역
+        string = string.replace(regExpBreak, '<br/>');                                  // br 요소가 있는지 확인하고 번역
 
         // 사용자가 추가적인 인라인 문법 번역 함수를 추가했다면 실행한다.
         if(additionalDecodeInline != null) {
@@ -749,14 +721,154 @@ RICALE.HMD.Decoder.prototype = (function() {
     // this.translate에서 바로 하지 않는 이유는
     // 전후 줄의 상태에 따라 번역이 달라질 수 있기 때문이다.
     decode = function() {
-        var string = "", 
-            listNested = Array(),
-            nowQuotes = 0,
-            startP = false,
-            startList = false,
-            startCodeblock = false,
-            line, r, i, j, k, prev, next, above, below,
-            idxAbove, idxBelow, aboveIdxAbove, belowIdxBelow;
+        var startParagraphIfNeeded = function() {
+            if(!startP) {
+                line += "<p>";
+                startP = true;
+            }
+        },
+
+        closeParagraphIfNeeded = function() {
+            if(r.tag != P && startP) {
+                line += "</p>";
+                startP = false;
+            }
+        },
+
+        startCodeblockIfNeeded = function() {
+            if(!startCodeblock) {
+                line += "<pre><code>";
+                startCodeblock = true;
+            }
+        },
+
+        closeCodeblockIfNeeded = function() {
+            if(r.tag != CODEBLOCK && startCodeblock) {
+                line += "</code></pre>";
+                startCodeblock = false;
+            }
+        },
+
+        closeListIfNeeded = function() {
+            if(r.level != 0) {
+                if(r.level < listNested.length) {
+                    for(j = listNested.length - 1; j >= r.level; j--) {
+                        line += "</li></" + listNested[j] + ">";
+                    }
+                    listNested = listNested.slice(0, r.level);
+
+                } else if(above && r.quote < above.quote) {
+                    for(j = listNested.length - 1; j >= 0; j--) {
+                        line += "</li></" + listNested[j] + ">";
+                    }
+                    listNested = Array();
+
+                } else if(r.level == listNested.length){
+                    if(r.tag == UL || r.tag == OL) {
+                        line += "</li>";
+                        if(r.tag != listNested[listNested.length - 1]) {
+                            line += "</" + listNested[listNested.length - 1] + ">";
+                        }
+                    }
+
+                }
+            }
+        },
+
+        closeListCompletelyIfNeeded = function() {
+            if(r.level == 0 && listNested.length != 0) {
+                for(j = listNested.length - 1; j >= 0; j-- ) {
+                    line += "</li></" + listNested[j] + ">";
+                }
+                listNested = Array();
+            }
+        },
+
+        startOrCloseBlockquoteIfNeeded = function() {
+            // blockquote의 시작/종료 여부를 판단.
+            if(r.quote < nowQuotes && prev != null && prev.tag == BLANK) {
+                for(j = 0; j < nowQuotes - r.quote; j++) {
+                    line += "</blockquote>"
+                }
+                nowQuotes = r.quote;
+            } else if(r.quote > nowQuotes) {
+                for(j = 0; j < r.quote - nowQuotes; j++) {
+                    line += "<blockquote>";
+                }
+                nowQuotes = r.quote;
+
+            } 
+        },
+
+        startListIfNeeded = function() {
+            if(r.level != 0) {
+                if(r.level > listNested.length) {
+                    k = r.level - listNested.length;
+                    for(j = 0; j < k; j++) {
+                        listNested[listNested.length] = r.tag;
+                        line += "<" + r.tag + "><li>";
+                    }
+                    startLI = true;
+
+                } else {
+                    if(r.tag == UL || r.tag == OL) {
+                        if(r.level == listNested.length && r.tag != listNested[listNested.length - 1]) {
+                            line += "<" + r.tag + ">";
+                            listNested[listNested.length - 1] = r.tag;
+                        }
+                        line += "<li>";
+                        startLI = true;
+                    }
+                }
+            }
+        },
+
+        startParagraphInListIfNeeded = function() {
+            var addOpenParagraphTag = function() {
+                line += "<p>";
+                startP = true;
+            };
+
+            if(r.level != 0) {
+                if(startLI && !startP && r.tag != CODEBLOCK) {
+                    if(next && below && next.tag == BLANK && below.level == r.level) {
+                        addOpenParagraphTag();
+
+                    } else if(prev && above && prev.tag == BLANK && above.level == r.level) {
+                        addOpenParagraphTag();
+                        
+                    } else {
+                        idxAbove = idxAboveThisList(i);
+                        aboveIdxAbove = aboveExceptBlank(idxAbove);
+                        idxBelow = idxBelowThisList(i);
+                        belowIdxBelow = belowExceptBlank(idxBelow);
+
+                        if(idxAbove && aboveIdxAbove && this.result[idxAbove].tag == BLANK && aboveIdxAbove.level == r.level) {
+                            addOpenParagraphTag();
+
+                        } else if(idxBelow && belowIdxBelow && this.result[idxBelow].tag == BLANK && belowIdxBelow.level == r.level) {
+                            addOpenParagraphTag();
+
+                        } else {
+                            for(j = i + 1; j < idxBelow; j++) {
+                                if(this.result[j].tag == P) {
+                                    this.result[j].tag = undefined;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        string = "",
+        listNested = Array(),
+        nowQuotes = 0,
+        startP = false,
+        startList = false,
+        startCodeblock = false,
+        line, r, i, j, k, prev, next, above, below,
+        idxAbove, idxBelow, aboveIdxAbove, belowIdxBelow;
 
         // 줄 단위로 확인한다.
         for(i = 0; i < this.result.length; i++) {
@@ -767,118 +879,16 @@ RICALE.HMD.Decoder.prototype = (function() {
             above = aboveExceptBlank(i);
             below = belowExceptBlank(i);
 
-            if(r.tag != P && startP) {
-                line += "</p>";
-                startP = false;
-            }
-
-            if(r.tag != CODEBLOCK && startCodeblock) {
-                line += "</code></pre>";
-                startCodeblock = false;
-            }
+            closeParagraphIfNeeded();
+            closeCodeblockIfNeeded();
 
             // blockquote, ul/ol/li 시작/종료 여부를 판단.
             if(r.tag != BLANK) {
-
-                if(r.level != 0) {
-                    if(r.level < listNested.length) {
-                        for(j = listNested.length - 1; j >= r.level; j--) {
-                            line += "</li></" + listNested[j] + ">";
-                        }
-                        listNested = listNested.slice(0, r.level);
-
-                    } else if(above && r.quote < above.quote) {
-                        for(j = listNested.length - 1; j >= 0; j--) {
-                            line += "</li></" + listNested[j] + ">";
-                        }
-                        listNested = Array();
-
-                    } else if(r.level == listNested.length){
-                        if(r.tag == UL || r.tag == OL) {
-                            line += "</li>";
-                            if(r.tag != listNested[listNested.length - 1]) {
-                                line += "</" + listNested[listNested.length - 1] + ">";
-                            }
-                        }
-
-                    }
-                }
-
-                if(r.level == 0 && listNested.length != 0) {
-                    for(j = listNested.length - 1; j >= 0; j-- ) {
-                        line += "</li></" + listNested[j] + ">";
-                    }
-                    listNested = Array();
-                }
-
-                // blockquote의 시작/종료 여부를 판단.
-                if(r.quote < nowQuotes && prev != null && prev.tag == BLANK) {
-                    for(j = 0; j < nowQuotes - r.quote; j++) {
-                        line += "</blockquote>"
-                    }
-                    nowQuotes = r.quote;
-                } else if(r.quote > nowQuotes) {
-                    for(j = 0; j < r.quote - nowQuotes; j++) {
-                        line += "<blockquote>";
-                    }
-                    nowQuotes = r.quote;
-
-                } 
-
-                // ul/ol/li의 시작 여부를 판단.
-                if(r.level != 0) {
-                    if(r.level > listNested.length) {
-                        k = r.level - listNested.length;
-                        for(j = 0; j < k; j++) {
-                            listNested[listNested.length] = r.tag;
-                            line += "<" + r.tag + "><li>";
-                        }
-                        startLI = true;
-
-                    } else {
-                        if(r.tag == UL || r.tag == OL) {
-                            if(r.level == listNested.length && r.tag != listNested[listNested.length - 1]) {
-                                line += "<" + r.tag + ">";
-                                listNested[listNested.length - 1] = r.tag;
-                            }
-                            line += "<li>";
-                            startLI = true;
-                        }
-                    }
-
-                    if(startLI && !startP && r.tag != CODEBLOCK) {
-                        if(next && below && next.tag == BLANK && below.level == r.level) {
-                            line += "<p>";
-                            startP = true;
-                        
-                        } else if(prev && above && prev.tag == BLANK && above.level == r.level) {
-                            line += "<p>";
-                            startP = true;
-                            
-                        } else {
-                            idxAbove = idxAboveThisList(i);
-                            aboveIdxAbove = aboveExceptBlank(idxAbove);
-                            idxBelow = idxBelowThisList(i);
-                            belowIdxBelow = belowExceptBlank(idxBelow);
-
-                            if(idxAbove && aboveIdxAbove && this.result[idxAbove].tag == BLANK && aboveIdxAbove.level == r.level) {
-                                line += "<p>";
-                                startP = true;
-
-                            } else if(idxBelow && belowIdxBelow && this.result[idxBelow].tag == BLANK && belowIdxBelow.level == r.level) {
-                                line += "<p>";
-                                startP = true;
-
-                            } else {
-                                for(j = i + 1; j < idxBelow; j++) {
-                                    if(this.result[j].tag == P) {
-                                        this.result[j].tag = undefined;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                closeListIfNeeded();
+                closeListCompletelyIfNeeded();
+                startOrCloseBlockquoteIfNeeded();
+                startListIfNeeded();
+                startParagraphInListIfNeeded();
             }
 
             if(r.tag == CODEBLOCK) {
@@ -889,36 +899,29 @@ RICALE.HMD.Decoder.prototype = (function() {
                         case '&': return '&amp;';
                     }
                 });
+
             } else {
                 r.content = decodeInline(r.content);
             }
 
             switch(r.tag) {
-                // 제목(h1, h2, h3, h4, h5, h6) 혹은 수평선(hr)일 때의 번역.
-                // 내용이 짧은 관계로 붙여서 작성햇다.
                 case H1:    line += "<h1>" + r.content + "</h1>"; break;
                 case H2:    line += "<h2>" + r.content + "</h2>"; break;
                 case H3:    line += "<h3>" + r.content + "</h3>"; break;
                 case H4:    line += "<h4>" + r.content + "</h4>"; break;
                 case H5:    line += "<h5>" + r.content + "</h5>"; break;
                 case H6:    line += "<h6>" + r.content + "</h6>"; break;
-                case HR:    line += "<hr/>"; break;
-                case BLANK: line += "\n"; break;
+                case HR:    line += "<hr/>";                      break;
+                case BLANK: line += "\n";                         break;
                 case P:
-                    if(!startP) {
-                        line += "<p>";
-                        startP = true;
-                    }
+                    startParagraphIfNeeded();
                     line += r.content;
-                break;
+                    break;
 
                 case CODEBLOCK:
-                    if(!startCodeblock) {
-                        line += "<pre><code>";
-                        startCodeblock = true;
-                    }
+                    startCodeblockIfNeeded();
                     line += r.content + "\n";
-                break;
+                    break;
 
                 default: line += r.content; break;
             }
@@ -928,7 +931,7 @@ RICALE.HMD.Decoder.prototype = (function() {
 
 
 
-        $(targetSelector).html(string);
+        return string;
     }
 
     return {
@@ -936,12 +939,15 @@ RICALE.HMD.Decoder.prototype = (function() {
         constructor: RICALE.HMD.Decoder,
         
         // ### public method
+
+        decode: function(string) {
+            return translate(string);
+        },
+
         // - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 contentarea 요소의 셀렉터
         // - targetElementSelector : HTML 형식의 번역 결과가 출력될 HTML 요소의 셀렉터
         run: function(sourceTextareaSelector, targetElementSelector) {
             var self = this, interval = null;
-
-            targetSelector = targetElementSelector;
 
             // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 괴이한 현상이 있다.
             // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
@@ -964,7 +970,7 @@ RICALE.HMD.Decoder.prototype = (function() {
             });
 
             $(sourceTextareaSelector).keyup(function(event) {
-                translate($(sourceTextareaSelector).val());
+                $(targetElementSelector).html(translate($(sourceTextareaSelector).val()));
             });
 
             $(sourceTextareaSelector).trigger('keyup');
