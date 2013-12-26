@@ -126,22 +126,23 @@ RICALE.HMD.Decoder.prototype = (function() {
         /`([^`]+)`/g
     ],
     regExpBreak = /(  )$/,
-    regExpEscape = /\\([-_\*+\.>#\[\]\(\)`])/,
-    regExpReturnEscape = /\\EC([1-9A-C])\\/,
+    regExpEscape = /\\([\\-_\*+\.>#\[\]\(\)`])/,
+    regExpReturnEscape = /;;EC([0-9A-D]);;/,
 
     replacerForEscapeCharacter = {
-        '-': '\\EC1\\',
-        '_': '\\EC2\\',
-        '*': '\\EC3\\',
-        '+': '\\EC4\\',
-        '.': '\\EC5\\',
-        '>': '\\EC6\\',
-        '#': '\\EC7\\',
-        '[': '\\EC8\\',
-        ']': '\\EC9\\',
-        '(': '\\ECA\\',
-        ')': '\\ECB\\',
-        '`': '\\ECC\\',
+        '-': ';;EC1;;',
+        '_': ';;EC2;;',
+        '*': ';;EC3;;',
+        '+': ';;EC4;;',
+        '.': ';;EC5;;',
+        '>': ';;EC6;;',
+        '#': ';;EC7;;',
+        '[': ';;EC8;;',
+        ']': ';;EC9;;',
+        '(': ';;ECA;;',
+        ')': ';;ECB;;',
+        '`': ';;ECC;;',
+        '\\':';;ECD;;',
         '1': '-',
         '2': '_',
         '3': '*',
@@ -153,7 +154,8 @@ RICALE.HMD.Decoder.prototype = (function() {
         '9': ']',
         'A': '(',
         'B': ')',
-        'C': '`'
+        'C': '`',
+        'D': '\\'
     },
 
     // ### private method
@@ -212,11 +214,11 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         isUnderlineForH1 = function() {
-            return sentence.content.match(regExpH1Underlined) != null && now != 0 && this.sentence[now - 1].tag == P
+            return sentence.content.match(regExpH1Underlined) != null && now != 0 && this.result[now - 1].tag == P
         },
 
         isUnderlineForH2 = function() {
-            return sentence.content.match(regExpH2Underlined) != null && now != 0 && this.sentence[now - 1].tag == P
+            return sentence.content.match(regExpH2Underlined) != null && now != 0 && this.result[now - 1].tag == P
         },
 
         isHR = function() {
@@ -511,12 +513,12 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         setPrevLineAsH1 = function() {
-            this.sentence[now - 1].tag = H1;
+            this.result[now - 1].tag = H1;
             return null;
         },
 
         setPrevLineAsH2 = function() {
-            this.sentence[now - 1].tag = H2;
+            this.result[now - 1].tag = H2;
             return null;
         },
 
@@ -535,7 +537,6 @@ RICALE.HMD.Decoder.prototype = (function() {
             sentence.tag = P;
             return sentence;
         };
-
 
         if(isBlank()) return setBlankSentence();
 
@@ -670,7 +671,7 @@ RICALE.HMD.Decoder.prototype = (function() {
         var i, line, id;
 
         while((line = string.match(regExpEscape)) != null) {
-            string = string.replace(line[0], this.replacerForEscapeCharacter[line[1]]);
+            string = string.replace(line[0], replacerForEscapeCharacter[line[1]]);
         }
 
         string = string.replace(regExpStrong[0], '<strong>$1</strong>'); // 문자열 내에 strong 요소가 있는지 확인하고 번역
@@ -721,7 +722,7 @@ RICALE.HMD.Decoder.prototype = (function() {
         string = string.replace(/<(?=[^>]*$)/g, '&lt;');
 
         while((line = string.match(regExpReturnEscape)) != null) {
-            string = string.replace(line[0], this.replacerForEscapeCharacter[line[1]]);
+            string = string.replace(line[0], replacerForEscapeCharacter[line[1]]);
         }
 
         return string;
