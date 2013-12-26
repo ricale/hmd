@@ -684,8 +684,13 @@ RICALE.HMD.Decoder.prototype = (function() {
         // 단 전체 내용 내에 대응대는 참조 정보가 없다면 번역되지 않는다.
         while((line = regExpImg.exec(string)) != null) {
             id = line[2] == "" ? line[1] : line[2];
-            if(this.refId[id] != undefined){
-                string = string.replace(line[0], '<img src="'+this.refId[id]['url']+'" alt="'+line[1]+'" title="'+this.refId[id]['title']+'">');
+            if(this.refId[id] != undefined) {
+                if(this.refId[id]['title'] != undefined) {
+                    string = string.replace(line[0], '<img src="'+this.refId[id]['url']+'" alt="'+line[1]+'" title="'+this.refId[id]['title']+'">');
+                
+                } else {
+                    string = string.replace(line[0], '<img src="'+this.refId[id]['url']+'" alt="'+line[1]+'">');    
+                }
             }
         }
 
@@ -694,7 +699,12 @@ RICALE.HMD.Decoder.prototype = (function() {
         while((line = regExpLink.exec(string)) != null) {
             id = line[2] == "" ? line[1] : line[2];
             if(this.refId[id] != undefined) {
-                string = string.replace(line[0], '<a href="'+this.refId[id]['url']+'" title="'+this.refId[id]['title']+'">'+line[1]+'</a>');
+                if(this.refId[id]['title'] != undefined) {
+                    string = string.replace(line[0], '<a href="'+this.refId[id]['url']+'" title="'+this.refId[id]['title']+'">'+line[1]+'</a>');
+
+                } else {
+                    string = string.replace(line[0], '<a href="'+this.refId[id]['url']+'">'+line[1]+'</a>');
+                }
             }
         }
 
