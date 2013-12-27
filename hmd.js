@@ -127,7 +127,7 @@ RICALE.HMD.Decoder.prototype = (function() {
     ],
     regExpBreak = /(  )$/,
     regExpEscape = /\\([\\-_\*+\.>#\[\]\(\)`])/,
-    regExpReturnEscape = /;;EC([0-9A-D]);;/,
+    regExpReturnEscape = /;;EC([0-9A-E]);;/,
 
     replacerForEscapeCharacter = {
         '-': ';;EC1;;',
@@ -143,6 +143,7 @@ RICALE.HMD.Decoder.prototype = (function() {
         ')': ';;ECB;;',
         '`': ';;ECC;;',
         '\\':';;ECD;;',
+        '^':' ;;ECE;;',
         '1': '-',
         '2': '_',
         '3': '*',
@@ -155,7 +156,8 @@ RICALE.HMD.Decoder.prototype = (function() {
         'A': '(',
         'B': ')',
         'C': '`',
-        'D': '\\'
+        'D': '\\',
+        'E': '^'
     },
 
     // ### private method

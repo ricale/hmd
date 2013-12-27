@@ -1,5 +1,3 @@
-# handmade markdown decoder
-
 1. 기본 정보
 2. 개요
 3. 사용 방법
@@ -15,7 +13,7 @@
 
 ## 2. 개요
 
-handmade markdown decoder ,,(hmd),,는 마크다운 문법을 HTML 형식으로 출력해주는 자바스크립트 컴포넌트이다.
+hmd ,,(handmade markdown decoder),,는 마크다운 문법을 HTML 형식으로 출력해주는 자바스크립트 컴포넌트이다.
 
 마크다운 문법은 기본적으로 [이 곳][syntax]의 문법을 따른다. 단 근본적인 문법을 변경하지 않는 선에서 세부사항이 변경될 수 있다. 현재 hmd에서의 마크다운 문법의 상세는 이 문서에서 확인할 수 있다.
 
@@ -23,7 +21,7 @@ handmade markdown decoder ,,(hmd),,는 마크다운 문법을 HTML 형식으로 
 
 [syntax]: http://daringfireball.net/projects/markdown/syntax
 [git]: https://bitbucket.org/ricale/hmd
-[blog]: http://ricalest.net
+[blog]: http://blog.ricalest.net/4
 
 ### 2.1. 문제점
 
@@ -34,7 +32,7 @@ handmade markdown decoder ,,(hmd),,는 마크다운 문법을 HTML 형식으로 
 ### 3.1. run
 
     RICALE.hmd.run(sourceTextareaSelector, targetElementSelector);
-	
+    
 + `sourceTextareaSelector`는 마크다운 문법의 글이 작성되어있는 textarea의 셀렉터이다. 
 + `targetElementSelector`는 HTML로 번역된 결과가 출력될 HTML 요소의 셀렉터이다.
 + 이 메서드를 실행하는 순간 번역이 실행되고 이 후에는 textarea에서 키보드 입력이 있을때마다 textarea의 내용이 다시 번역된다.
