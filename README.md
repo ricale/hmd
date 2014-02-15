@@ -8,7 +8,7 @@
 ## 1. 기본 정보
 
 * Dependency : JavaScript (jQuery)
-* Writer : ricale
+* Writer : ricale (ricale@ricalest.net)
 * Version : 0.2.3
 
 ## 2. 개요
@@ -21,7 +21,7 @@ hmd ,,(handmade markdown decoder),,는 마크다운 문법을 HTML 형식으로 
 
 [syntax]: http://daringfireball.net/projects/markdown/syntax
 [git]: https://bitbucket.org/ricale/hmd
-[blog]: http://blog.ricalest.net/4
+[blog]: http://weblog.ricalest.net/4
 
 ### 2.1. 문제점
 

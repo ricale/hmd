@@ -229,7 +229,9 @@ RICALE.HMD.Decoder.prototype = (function() {
 
         matchWithListForm = function(tag, regExpTag) {
 
-            var isThisReallyListElement = function(line) {
+            var line, isLine,
+
+            isThisReallyListElement = function(line) {
 
                 var getListLevel = function(blank, isInBq) {
                     // 이 줄의 들여쓰기가 몇 개의 공백으로 이루어져있는지 확인한다.
@@ -238,30 +240,12 @@ RICALE.HMD.Decoder.prototype = (function() {
                         levels = isInBq ? this.listLevelInBlockquote : this.listLevel,
                         now, exist, i,
 
-                    noListBefore = function() {
-                        return levels.length == 0;
-                    },
-
-                    existListWithOnlyOneLevel = function() {
-                        return levels.length == 1;
-                    },
-
-                    indentIsSameAsFirstLevelOfList = function() {
-                        return space == levels[0];
-                    },
-
-                    isParagraphContinuedFromPrevListItem = function() {
-                        return space >= (now + 1) * 4;
-                    },
-
-                    isNextLevelOfPrevListItem = function() {
-                        return space > levels[now - 1] && space > (now - 1) * 4
-                    },
-
-                    isSameLevelOfPrevListItem = function() {
-                        return space >= levels[now - 1];
-                    };
-
+                    noListBefore                         = function() { return levels.length == 0; },
+                    existListWithOnlyOneLevel            = function() { return levels.length == 1; },
+                    indentIsSameAsFirstLevelOfList       = function() { return space == levels[0]; },
+                    isParagraphContinuedFromPrevListItem = function() { return space >= (now + 1) * 4; },
+                    isNextLevelOfPrevListItem            = function() { return space > levels[now - 1] && space > (now - 1) * 4 },
+                    isSameLevelOfPrevListItem            = function() { return space >= levels[now - 1]; };
 
                     if(noListBefore()) {
                         if(space <= 3) {
@@ -330,7 +314,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                     levels = null;
 
                     return result;
-                },
+                }; // getListLevel
 
                 r = getListLevel(line[1], sentence.quote != 0);
 
@@ -343,9 +327,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                 } else {
                     return false;
                 }
-            },
-
-            line, isLine;
+            }; // visThisReallyListElement
 
 
             if((line = sentence.content.match(regExpTag)) != null) {
@@ -562,7 +544,7 @@ RICALE.HMD.Decoder.prototype = (function() {
 
         return setParagraph();
 
-    }, // end function match
+    }, // matching
 
     // 이 줄(string)이 인용 요소에 포함된 줄인지,
     // 포함되어 있다면 인용 요소가 몇 번이나 중첩되어 있는지 확인한다.
