@@ -50,7 +50,7 @@ RICALE.HMD.ReferencedId = function(url, title) {
 RICALE.HMD.Decoder = function() {
 
     // 문장 별 해석 결과(RICALE.HMD.TranslateSentence)의 배열
-    this.result = Array();
+    this.result = "TEST"//Array();
 
     // 참조 스타일의 이미지/링크 요소 사용 시 참조 정보를 담은 해시.
     // (key:아이디) - (value:RICALE.HMD.ReferenceId 의 객체) 형식이다.
@@ -61,10 +61,10 @@ RICALE.HMD.Decoder = function() {
     this.listLevelInBlockquote = Array();
 }
 
-RICALE.HMD.Decoder.prototype
-
 RICALE.HMD.Decoder.prototype = (function() {
     var additionalDecodeInline,
+
+    self,
 
     // 어떤 마크다운 문법이 적용되었는지 구분할 때 쓰일 구분자들 (string) 
     P = "p",
@@ -108,24 +108,50 @@ RICALE.HMD.Decoder.prototype = (function() {
     // - Img > Link
     // - ImgInline > LineInline
 
-    regExpStrong = [
-        /\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g,
-        /__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g
-    ],
-    regExpEM = [
-        /\*([^\*\s]{1,2}|[^\s].+?[^\s])\*/g,
-        /_([^_\s]{1,2}|[^\s].+?[^\s])_/g
-    ],
-    regExpImg = RegExp(/!\[([^\]]+)\][\s]*\[([^\]]*)\]/g),
-    regExpLink = RegExp(/\[([^\]]+)\][\s]*\[([^\]]*)\]/g),
-    regExpImgInline = /!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,
-    regExpLinkInline = /\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,
-    regExpLinkAuto = /<(http[s]?:\/\/[^>]+)>/g,
-    regExpCode = [
-        /``[\s]*(.+?)[\s]*``/g,
-        /`([^`]+)`/g
-    ],
-    regExpBreak = /(  )$/,
+    referenceRuleRegExps = [{
+        regexp: RegExp(/!\[([^\]]+)\][\s]*\[([^\]]*)\]/g),
+        getResult: function(url, alt, title) {
+            if(title == undefined) {
+                return '<img src="' + url + '" alt="' + alt + '">'
+            } else {
+                return '<img src="' + url + '" alt="' + alt + '" title="' + title + '">'
+            }
+        }
+    }, {
+        regexp: RegExp(/\[([^\]]+)\][\s]*\[([^\]]*)\]/g),
+        getResult: function(url, text, title) {
+            if(title == undefined) {
+                return '<a href="' + url + '">' + text + '</a>'
+            } else {
+                return '<a href="' + url + '" title="' + title + '">' + text + '</a>' 
+            }
+        }
+    }],
+
+    inlinRuleRegExps = (function() {
+        var getHash = function(regexp, result, noDecodeMore, isLink) {
+            noDecodeMore = noDecodeMore || false
+            isLink       = isLink       || false
+
+            return { regexp: regexp, result: result, noDecodeMore: noDecodeMore. isLink: isLink }
+        }
+
+        return [
+            getHash(/``[\s]*(.+?)[\s]*``/g,                          '<code>$1</code>', true),
+            getHash(/`([^`]+)`/g,                                    '<code>$1</code>', true),
+            getHash(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, '<img src="$2" alt="$1" title="$3">', true),
+            getHash(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,  '<a href="$2" title="$3">$1</a>', true),
+            getHash(/<(http[s]?:\/\/[^>]+)>/g,                       '<a href="$1">$1</a>', false, true),
+
+            getHash(/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g, '<strong>$1</strong>'),
+            getHash(/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g,          '<strong>$1</strong>'),
+            getHash(/\*([^\*\s]{1,2}|[^\s].+?[^\s])\*/g,                             '<em>$1</em>'),
+            getHash(/_([^_\s]{1,2}|[^\s].+?[^\s])_/g,                                '<em>$1</em>'),
+            getHash(/(  )$/,                                                         '<br/>'),
+            getHash(/<(?=[^>]*$)/g,                                                  '&lt;'),
+        ]
+    })(),
+
     regExpEscape = /\\([\\-_\*+\.>#\[\]\(\)`])/,
     regExpReturnEscape = /;;EC([0-9A-E]);;/,
 
@@ -163,13 +189,14 @@ RICALE.HMD.Decoder.prototype = (function() {
     // ### private method
 
     translate = function(sourceString) {
-        var array = sourceString.split(/\n/), i, now, result,
+        var array = sourceString.split(/\n/), i, now, r,
 
         initAll = function() {
-            this.result = Array();
-            this.refId = {};
-            this.listLevel = Array();
-            this.listLevelInBlockquote = Array();
+            self.result = Array();
+            console.log("translate() initAll()", self.result)
+            self.refId = {};
+            self.listLevel = Array();
+            self.listLevelInBlockquote = Array();
         },
 
         isEndOfList = function(result) {
@@ -177,27 +204,29 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         cleanListInformation = function() {
-            if(this.listLevel.length > 0) {
-                this.listLevel = Array();
-                this.listLevelInBlockquote = Array();
+            if(self.listLevel.length > 0) {
+                self.listLevel = Array();
+                self.listLevelInBlockquote = Array();
             }
 
-            if(this.listLevelInBlockquote.length > 0) {
-                this.listLevelInBlockquote = Array();
+            if(self.listLevelInBlockquote.length > 0) {
+                self.listLevelInBlockquote = Array();
             }
         };
+
+        self = this;
 
         initAll();
 
         now = 0
         for(i = 0; i < array.length; i++) {
-            if((result = matching(array[i], now)) == null) {
+            if((r = matching(array[i], now)) == null) {
                 continue;
             }
 
-            this.result[now] = result;
+            self.result[now] = r;
 
-            if(isEndOfList(this.result[now])) {
+            if(isEndOfList(self.result[now])) {
                 cleanListInformation()
             }
 
@@ -216,11 +245,11 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         isUnderlineForH1 = function() {
-            return sentence.content.match(regExpH1Underlined) != null && now != 0 && this.result[now - 1].tag == P
+            return sentence.content.match(regExpH1Underlined) != null && now != 0 && self.result[now - 1].tag == P
         },
 
         isUnderlineForH2 = function() {
-            return sentence.content.match(regExpH2Underlined) != null && now != 0 && this.result[now - 1].tag == P
+            return sentence.content.match(regExpH2Underlined) != null && now != 0 && self.result[now - 1].tag == P
         },
 
         isHR = function() {
@@ -237,7 +266,7 @@ RICALE.HMD.Decoder.prototype = (function() {
                     // 이 줄의 들여쓰기가 몇 개의 공백으로 이루어져있는지 확인한다.
                     var space = getIndentLevel(blank),
                         result = new RICALE.HMD.TranslateSentence(),
-                        levels = isInBq ? this.listLevelInBlockquote : this.listLevel,
+                        levels = isInBq ? self.listLevelInBlockquote : self.listLevel,
                         now, exist, i,
 
                     noListBefore                         = function() { return levels.length == 0; },
@@ -304,11 +333,11 @@ RICALE.HMD.Decoder.prototype = (function() {
                     }
 
                     if(isInBq) {
-                        result.level += this.listLevel.length;
-                        this.listLevelInBlockquote = levels;
+                        result.level += self.listLevel.length;
+                        self.listLevelInBlockquote = levels;
                         
                     } else {
-                        this.listLevel = levels;
+                        self.listLevel = levels;
                     }
 
                     levels = null;
@@ -497,12 +526,12 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         setPrevLineAsH1 = function() {
-            this.result[now - 1].tag = H1;
+            self.result[now - 1].tag = H1;
             return null;
         },
 
         setPrevLineAsH2 = function() {
-            this.result[now - 1].tag = H2;
+            self.result[now - 1].tag = H2;
             return null;
         },
 
@@ -513,7 +542,7 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         setReference = function() {
-            this.refId[result[1]] = new RICALE.HMD.ReferencedId(result[2], result[3]);
+            self.refId[result[1]] = new RICALE.HMD.ReferencedId(result[2], result[3]);
             return null;
         },
 
@@ -588,8 +617,8 @@ RICALE.HMD.Decoder.prototype = (function() {
     // 존재하지 않으면 null을 반환한다.
     aboveExceptBlank = function(index) {
         for(var i = index - 1; i >= 0; i--) {
-            if(this.result[i].tag != BLANK) {
-                return this.result[i];
+            if(self.result[i].tag != BLANK) {
+                return self.result[i];
             }
         }
 
@@ -599,9 +628,9 @@ RICALE.HMD.Decoder.prototype = (function() {
     // 빈 줄을 제외한 바로 아랫줄을 얻는다.
     // 존재하지 않으면 null을 반환한다.
     belowExceptBlank = function(index) {
-        for(var i = index + 1; i < this.result.length; i++) {
-            if(this.result[i].tag != BLANK) {
-                return this.result[i];
+        for(var i = index + 1; i < self.result.length; i++) {
+            if(self.result[i].tag != BLANK) {
+                return self.result[i];
             }
         }
 
@@ -611,22 +640,22 @@ RICALE.HMD.Decoder.prototype = (function() {
     // 빈 줄을 포함한 바로 윗줄을 얻는다.
     // 존재하지 않으면 null을 반환한다.
     previousLine = function(index) {
-        return index > 1 ? this.result[index - 1] : null;
+        return index > 1 ? self.result[index - 1] : null;
     },
 
     // 빈 줄을 포함한 바로 아랫줄을 얻는다.
     // 존재하지 않으면 null을 반환한다.
     nextLine = function(index) {
-        return index < this.result.length - 1 ? this.result[index + 1] : null;
+        return index < self.result.length - 1 ? self.result[index + 1] : null;
     },
 
     // 현재 이어지고 있는 목록 요소가 끝나고 난 뒤의 줄 번호를 얻는다.
     idxBelowThisList = function(index) {
-        for(var i = index + 1; i < this.result.length; i++) {
-            if(this.result[i].level == 0) {
-                return i + 1 < this.result.length ? i : null;
+        for(var i = index + 1; i < self.result.length; i++) {
+            if(self.result[i].level == 0) {
+                return i + 1 < self.result.length ? i : null;
 
-            } else if(this.result[i].tag == UL || this.result[i].tag == OL) {
+            } else if(self.result[i].tag == UL || self.result[i].tag == OL) {
                 return i != index + 1 ? i : null;
             }
         }
@@ -637,10 +666,10 @@ RICALE.HMD.Decoder.prototype = (function() {
     // 현재 이어지고 있는 목록 요소가 시작하기 전의 줄 번호를 얻는다.
     idxAboveThisList = function(index) {
         for(var i = index - 1; i >= 0; i--) {
-            if(this.result[i].level == 0) {
+            if(self.result[i].level == 0) {
                 return i - 1 >= 0 ? i : null;
 
-            } else if(this.result[i].tag == UL || this.result[i].tag == OL) {
+            } else if(self.result[i].tag == UL || self.result[i].tag == OL) {
                 return i != index - 1 ? i : null;
             }
         }
@@ -652,58 +681,47 @@ RICALE.HMD.Decoder.prototype = (function() {
     // 아무런 인라인 문법도 포함하고 있지 않다면 인자를 그대로 반환한다.
     // 추가적으로 사용자가 번역 함수를 추가했다면 해당 함수 또한 실행된다.
     decodeInline = function(string) {
-        var i, line, id;
+        var i, line, id, replacer = [],
+
+        decodeReferenceRule = function() {
+            var idx, refId;
+
+            for(idx in referenceRuleRegExps) {
+                while((line = referenceRuleRegExps[idx].regexp.exec(string)) != null) {
+                    refId = self.refId[line[2] || line[1]];
+                    if(refId != undefined) {
+                        string = string.replace(line[0], referenceRuleRegExps[idx].getResult(refId['url'], line[1], refId['title']));
+                    }
+                }
+            }
+        },
+
+        decodeInlineRule = function() {
+            for(i in inlinRuleRegExps) {
+                rule = inlinRuleRegExps[i]
+
+                if(rule.noDecodeMore) {
+                    //TODO
+                } else if(rule.isLink) {
+                    //TODO
+                } else {
+                    string = string.replace(rule.regexp, rule.result)
+                }
+            }
+        };
+
 
         while((line = string.match(regExpEscape)) != null) {
             string = string.replace(line[0], replacerForEscapeCharacter[line[1]]);
         }
 
-        string = string.replace(regExpStrong[0], '<strong>$1</strong>'); // 문자열 내에 strong 요소가 있는지 확인하고 번역
-        string = string.replace(regExpStrong[1], '<strong>$1</strong>');
-        string = string.replace(regExpEM[0], '<em>$1</em>'); // 문자열 내에 em 요소가 있는지 확인하고 번역
-        string = string.replace(regExpEM[1], '<em>$1</em>');
-        string = string.replace(regExpCode[0], '<code>$1</code>'); // 문자열 내에 code 요소가 있는지 확인하고 번역
-        string = string.replace(regExpCode[1], '<code>$1</code>');
-
-        // 문자열 내에 참조 스타일의 img 요소가 있는지 확인하고 번역
-        // 단 전체 내용 내에 대응대는 참조 정보가 없다면 번역되지 않는다.
-        while((line = regExpImg.exec(string)) != null) {
-            id = line[2] == "" ? line[1] : line[2];
-            if(this.refId[id] != undefined) {
-                if(this.refId[id]['title'] != undefined) {
-                    string = string.replace(line[0], '<img src="'+this.refId[id]['url']+'" alt="'+line[1]+'" title="'+this.refId[id]['title']+'">');
-                
-                } else {
-                    string = string.replace(line[0], '<img src="'+this.refId[id]['url']+'" alt="'+line[1]+'">');    
-                }
-            }
-        }
-
-        // 문자열 내에 참조 스타일의 a 요소가 있는지 확인하고 번역
-        // 단 전체 내용 내에 대응대는 참조 정보가 없다면 번역되지 않는다.
-        while((line = regExpLink.exec(string)) != null) {
-            id = line[2] == "" ? line[1] : line[2];
-            if(this.refId[id] != undefined) {
-                if(this.refId[id]['title'] != undefined) {
-                    string = string.replace(line[0], '<a href="'+this.refId[id]['url']+'" title="'+this.refId[id]['title']+'">'+line[1]+'</a>');
-
-                } else {
-                    string = string.replace(line[0], '<a href="'+this.refId[id]['url']+'">'+line[1]+'</a>');
-                }
-            }
-        }
-
-        string = string.replace(regExpImgInline, '<img src="$2" alt="$1" title="$3">'); // 인라인 스타일의 img 요소가 있는지 확인하고 번역
-        string = string.replace(regExpLinkInline, '<a href="$2" title="$3">$1</a>');    // 인라인 스타일의 a 요소가 있는지 확인하고 번역
-        string = string.replace(regExpLinkAuto, '<a href="$1">$1</a>');                 // url 스타일의 a 요소가 있는지 확인하고 번역
-        string = string.replace(regExpBreak, '<br/>');                                  // br 요소가 있는지 확인하고 번역
+        decodeReferenceRule();
+        decodeInlineRule();
 
         // 사용자가 추가적인 인라인 문법 번역 함수를 추가했다면 실행한다.
         if(additionalDecodeInline != null) {
             string = additionalDecodeInline(string);
         }
-
-        string = string.replace(/<(?=[^>]*$)/g, '&lt;');
 
         while((line = string.match(regExpReturnEscape)) != null) {
             string = string.replace(line[0], replacerForEscapeCharacter[line[1]]);
@@ -838,16 +856,16 @@ RICALE.HMD.Decoder.prototype = (function() {
                         idxBelow = idxBelowThisList(i);
                         belowIdxBelow = belowExceptBlank(idxBelow);
 
-                        if(idxAbove && aboveIdxAbove && this.result[idxAbove].tag == BLANK && aboveIdxAbove.level == r.level) {
+                        if(idxAbove && aboveIdxAbove && self.result[idxAbove].tag == BLANK && aboveIdxAbove.level == r.level) {
                             addOpenParagraphTag();
 
-                        } else if(idxBelow && belowIdxBelow && this.result[idxBelow].tag == BLANK && belowIdxBelow.level == r.level) {
+                        } else if(idxBelow && belowIdxBelow && self.result[idxBelow].tag == BLANK && belowIdxBelow.level == r.level) {
                             addOpenParagraphTag();
 
                         } else {
                             for(j = i + 1; j < idxBelow; j++) {
-                                if(this.result[j].tag == P) {
-                                    this.result[j].tag = undefined;
+                                if(self.result[j].tag == P) {
+                                    self.result[j].tag = undefined;
                                 }
                             }
                         }
@@ -866,9 +884,9 @@ RICALE.HMD.Decoder.prototype = (function() {
         idxAbove, idxBelow, aboveIdxAbove, belowIdxBelow;
 
         // 줄 단위로 확인한다.
-        for(i = 0; i < this.result.length; i++) {
+        for(i = 0; i < self.result.length; i++) {
             line = "";
-            r = this.result[i];
+            r = self.result[i];
             prev = previousLine(i);
             next = nextLine(i);
             above = aboveExceptBlank(i);
@@ -935,8 +953,8 @@ RICALE.HMD.Decoder.prototype = (function() {
         
         // ### public method
 
-        decode: function(string) {
-            return translate(string);
+        translate: function(string) {
+            return translate.call(this, string);
         },
 
         // - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 contentarea 요소의 셀렉터
@@ -965,7 +983,7 @@ RICALE.HMD.Decoder.prototype = (function() {
             });
 
             $(sourceTextareaSelector).keyup(function(event) {
-                $(targetElementSelector).html(translate($(sourceTextareaSelector).val()));
+                $(targetElementSelector).html( translate.call(self, $(sourceTextareaSelector).val()) );
             });
 
             $(sourceTextareaSelector).trigger('keyup');
@@ -975,7 +993,7 @@ RICALE.HMD.Decoder.prototype = (function() {
         // 이는 기존의 인라인 요소 문법에 대한 확인이 모두 끝난 다음에 실행된다.
         setAdditionalDecodeInlineFunction: function(func) {
             additionalDecodeInline = func;
-        }
+        }   
     }
 })(); // RICALE.HMD.Decoder.prototype
 
