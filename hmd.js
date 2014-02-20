@@ -129,19 +129,26 @@ RICALE.HMD.Decoder.prototype = (function() {
     }],
 
     inlinRuleRegExps = (function() {
-        var getHash = function(regexp, result, noDecodeMore, isLink) {
+        var getHash = function(regexp, result, noDecodeMore, replacee, notReplaced) {
             noDecodeMore = noDecodeMore || false
-            isLink       = isLink       || false
+            replacee     = replacee     || null
+            notReplaced  = notReplaced  || null
 
-            return { regexp: regexp, result: result, noDecodeMore: noDecodeMore. isLink: isLink }
+            return {
+                regexp: regexp,
+                result: result,
+                noDecodeMore: noDecodeMore,
+                replacee: replacee,
+                notReplaced: notReplaced,
+            }
         }
 
         return [
-            getHash(/``[\s]*(.+?)[\s]*``/g,                          '<code>$1</code>', true),
-            getHash(/`([^`]+)`/g,                                    '<code>$1</code>', true),
-            getHash(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, '<img src="$2" alt="$1" title="$3">', true),
-            getHash(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,  '<a href="$2" title="$3">$1</a>', true),
-            getHash(/<(http[s]?:\/\/[^>]+)>/g,                       '<a href="$1">$1</a>', false, true),
+            getHash(/``[\s]*(.+?)[\s]*``/,                          '<code>$1</code>', true),
+            getHash(/`([^`]+)`/,                                    '<code>$1</code>', true),
+            getHash(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/, '<img src="$2" alt="$1" title="$3">', true),
+            getHash(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/,  '<a href="$2" title="$3">$1</a>', false, '<a href="$2" title="$3">', '$1</a>'),
+            getHash(/<(http[s]?:\/\/[^>]+)>/,                       '<a href="$1">$1</a>', true),
 
             getHash(/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g, '<strong>$1</strong>'),
             getHash(/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g,          '<strong>$1</strong>'),
@@ -193,7 +200,6 @@ RICALE.HMD.Decoder.prototype = (function() {
 
         initAll = function() {
             self.result = Array();
-            console.log("translate() initAll()", self.result)
             self.refId = {};
             self.listLevel = Array();
             self.listLevelInBlockquote = Array();
@@ -697,12 +703,25 @@ RICALE.HMD.Decoder.prototype = (function() {
         },
 
         decodeInlineRule = function() {
+            var index;
+
             for(i in inlinRuleRegExps) {
                 rule = inlinRuleRegExps[i]
 
                 if(rule.noDecodeMore) {
-                    //TODO
-                } else if(rule.isLink) {
+                    while(string.match(rule.regexp)) {
+                        index = replacer.length
+                        replacer[index] = string.match(rule.regexp)[0].replace(rule.regexp, rule.result)
+
+                        string = string.replace(rule.regexp, ';;REPLACER' + index + ';;')
+                    }
+                } else if(rule.replacee != null) {
+                    while(string.match(rule.regexp)) {
+                        index = replacer.length
+                        replacer[index] = string.match(rule.regexp)[0].replace(rule.regexp, rule.replacee)
+
+                        string = string.replace(rule.regexp, ';;REPLACER' + index + ';;' + rule.notReplaced)
+                    }
                     //TODO
                 } else {
                     string = string.replace(rule.regexp, rule.result)
@@ -725,6 +744,10 @@ RICALE.HMD.Decoder.prototype = (function() {
 
         while((line = string.match(regExpReturnEscape)) != null) {
             string = string.replace(line[0], replacerForEscapeCharacter[line[1]]);
+        }
+
+        while((line = string.match(/;;REPLACER([0-9]+);;/)) != null) {
+            string = string.replace(line[0], replacer[line[1]])
         }
 
         return string;
