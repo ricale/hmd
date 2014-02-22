@@ -9,7 +9,7 @@
 
 * Dependency : JavaScript (jQuery)
 * Writer : ricale (ricale@ricalest.net)
-* Version : 0.2.3
+* Version : 0.2.3.1
 
 ## 2. 개요
 
@@ -31,15 +31,15 @@ hmd ,,(handmade markdown decoder),,는 마크다운 문법을 HTML 형식으로 
 
 ### 3.1. run
 
-    RICALE.hmd.run(sourceTextareaSelector, targetElementSelector);
+    hmd.run(sourceTextareaSelector, targetElementSelector);
     
 + `sourceTextareaSelector`는 마크다운 문법의 글이 작성되어있는 textarea의 셀렉터이다. 
 + `targetElementSelector`는 HTML로 번역된 결과가 출력될 HTML 요소의 셀렉터이다.
 + 이 메서드를 실행하는 순간 번역이 실행되고 이 후에는 textarea에서 키보드 입력이 있을때마다 textarea의 내용이 다시 번역된다.
 
-### 3.2. translate
+### 3.2. decode
 
-    RICALE.hmd.translate(text);
+    hmd.decode(text);
     
 + `text`는 마크다운 문법으로 작성된 글(문자열)이다.
 + HTML로 변역한 결과 문자열을 반환한다.
@@ -48,19 +48,15 @@ hmd ,,(handmade markdown decoder),,는 마크다운 문법을 HTML 형식으로 
 
 추가적으로, 아래의 코드로 인라인 문법을 추가할 수 있다. (이는 필수적인 요소가 아니다.)
 
-    RICALE.hmd.setAdditionalDecodeInlineFunction(func);
-    
-+ 추가하고 싶은 문법을 번역하는 함수를 작성해 인자로 위 함수의 인자로 넘겨준다.
-+ 아래의 형식으로 작성되어야 한다.
+    hmd.addInlineRules(array);
 
-        function func(string) {
-            ......
-            return result;
-        }
-        
-+ 인자는 번역할 문자열이다.
-+ 반환값은 번역된 문자열이다. 여기서 번역된 문자열이라 함은 추가한 문법에 대해 일치하는 구문을 _HTML 형식으로 변환한_ 문자열을 말한다.
-+ 문법 추가 함수 작성에 대한 예제는 [hmd git 저장소][git]의 hmd.ricaleinline.js를 참고하라.
+작성 예시는 아래와 같다.
+
+    hmd.addInlineRules([
+        [/--([^-\s]{1,2}|-[^-\s]|[^-\s]-|(?:[^\s].+?[^\s]))--/g, '<del>$1</del>'],
+        [/,,([^,\s]{1,2}|,[^,\s]|[^,\s],|(?:[^\s].+?[^\s])),,/g,          '<sub>$1</sub>'],
+        [/\^\^([^\^\s]{1,2}|\^[^\^\s]|[^\^\s]\^|(?:[^\s].+?[^\s]))\^\^/g, '<sup>$1</sup>']
+    ]);
 
 ## 4. hmd의 마크다운 문법
 
@@ -305,7 +301,7 @@ url을 <>로 감싸면 자동으로 링크가 적용된다.
 
 _단 <> 안의 문자열이 http:// 혹은 https:// 으로 시작해야지만 적용된다._ 이는 본래 문법에 있는 것인지는 확인되지 않고, hmd에서는 적용된 사항이다.
 
-표준에 의하면 이메일 링크는 자동 암호화한다는 데, 뭔지 모르겠다. hmd에는 해당 사항을 구현하지 않는다.
+표준에 의하면 이메일 링크는 자동 암호화한다는 데, 뭔지 모르겠다. hmd에는 해당 사항을 지원하지 않는다.
 
 #### 4.2.2. 강조
 
@@ -412,5 +408,5 @@ _단 <> 안의 문자열이 http:// 혹은 https:// 으로 시작해야지만 �
 ## 6. 문서 정보
 
 - 작성자 : ricale
-- 문서버전 : hmd 0.2.3 1
-- 작성일 : 2013. 12. 26.
+- 문서버전 : hmd 0.2.3.1 1
+- 작성일 : 2014. 2. 22.
