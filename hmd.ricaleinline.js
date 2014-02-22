@@ -1,6 +1,6 @@
 // # hmd.ricaleinline (hmd add-on)
 //  - written by ricale
-//  - ricale@hanmail.net or kim.kangseong@gmail.com
+//  - ricale@ricalest.net
 
 hmd.addInlineRules([
     [/--([^-\s]{1,2}|-[^-\s]|[^-\s]-|(?:[^\s].+?[^\s]))--/g,          '<del>$1</del>'],
