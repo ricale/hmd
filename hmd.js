@@ -61,9 +61,10 @@ hmd = (function() {
     //////////////////////
 
     escapeRule = (function() {
-        var regexp = /\\([\\\-\*\.\[\]\(\)_+>#`^])/,
-            returnRegexp = /;;ESCAPE([0-9]+);;/,
-            replacee = ['-', '_', '*', '+', '.', '&gt;', '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
+        var regexp = /\\([\\\-\*\.\[\]\(\)_+<>#`^])/g,
+            returnRegexp = /;;ESCAPE([0-9]+);;/g,
+            replacee = ['-', '_', '*', '+', '.', '<',    '>',    '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
+            result   = ['-', '_', '*', '+', '.', '&lt;', '&gt;', '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
             replacer = {};
 
         for(idx in replacee) {
@@ -73,21 +74,17 @@ hmd = (function() {
         return (function() {
             return {
                 decode: function(string) {
-                    var line;
-
-                    while((line = string.match(regexp))) {
-                        string = string.replace(line[0], replacer[line[1]]);
-                    }
+                    string = string.replace(regexp, function(match, p1) {
+                        return replacer[p1];
+                    })
 
                     return string
                 },
 
                 escape: function(string) {
-                    var line;
-
-                    while((line = string.match(returnRegexp))) {
-                        string = string.replace(line[0], replacee[line[1]]);
-                    }
+                    string = string.replace(returnRegexp, function(match, p1) {
+                        return result[p1];
+                    });
 
                     return string
                 }
@@ -97,13 +94,11 @@ hmd = (function() {
 
     inlineRule = (function() {
         var NORMAL = 0,
-            NO_DECODE_MORE = 1,
-            INLINE_LINK = 2,
-            REFERENCED_NO_DECODE_MORE = 3,
-            REFERENCED = 4,
+            NEED_REPLACER = 1,
+            REFERENCED = 2,
 
             replacees = Array(),
-            replacerRegexp = /;;REPLACER([0-9]+);;/,
+            replacerRegexp = /;;REPLACER([0-9]+);;/g,
             reference = {},
             rules,
 
@@ -111,12 +106,11 @@ hmd = (function() {
             return { url: url, title: title }
         },
 
-        getRule = function(regexp, result, type, replacee, notReplaced) {
+        getRule = function(regexp, type, result, notReplaced) {
             return {
                 regexp: regexp,
-                result: result,
-                type: type || NORMAL,
-                replacee: replacee || null,
+                type:   type,
+                result: result, // or replacee
                 notReplaced: notReplaced || null,
             }
         },
@@ -131,28 +125,27 @@ hmd = (function() {
         // - Img > Link
         // - ImgInline > LineInline
         rules = [
-            getRule(/!\[([^\]]+)\][\s]*\[([^\]]*)\]/,
-                    function(url, alt, title) { return '<img src="'+url+'" alt="'+alt+'"'+ (title!=undefined ? ' title="'+title+'"' : '') + '>' },
-                    REFERENCED_NO_DECODE_MORE),
-
-            getRule(/\[([^\]]+)\][\s]*\[([^\]]*)\]/,
-                    '',
+            getRule(/!\[([^\]]+)\][\s]*\[([^\]]*)\]/g,
                     REFERENCED,
-                    function(url, title) { return '<a href="' + url + '"' + (title!=undefined ? ' title="'+title+'"' : '') + '>' },
+                    function(url,alt,title) { return '<img src="'+url+'" alt="'+alt+'"'+(title!=undefined ? ' title="'+title+'"' : '')+'>' }),
+
+            getRule(/\[([^\]]+)\][\s]*\[([^\]]*)\]/g,
+                    REFERENCED,
+                    function(url,alt,title) { return '<a href="'+url+'"'+(title!=undefined ? ' title="'+title+'"' : '')+'>' },
                     function(text) { return text + '</a>' }),
 
-            getRule(/``[\s]*(.+?)[\s]*``/,                          '<code>$1</code>',                    NO_DECODE_MORE),
-            getRule(/`([^`]+)`/,                                    '<code>$1</code>',                    NO_DECODE_MORE),
-            getRule(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/, '<img src="$2" alt="$1" title="$3">', NO_DECODE_MORE),
-            getRule(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/,  '',                                   INLINE_LINK, '<a href="$2" title="$3">', '$1</a>'),
-            getRule(/<(http[s]?:\/\/[^>]+)>/,                       '<a href="$1">$1</a>',                NO_DECODE_MORE),
+            getRule(/``[\s]*(.+?)[\s]*``/g,                          NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>' }),
+            getRule(/`([^`]+)`/g,                                    NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>' }),
+            getRule(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, NEED_REPLACER, function(p1,p2,p3) { return '<img src="$2" alt="$1" title="$3">' }),
+            getRule(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,  NEED_REPLACER, function(p1,p2,p3) { return '<a href="'+p2+'" title="'+p3+'">' }, function(p1) { return p1+'</a>' }),
+            getRule(/<(http[s]?:\/\/[^<]+)>/g,                       NEED_REPLACER, function(p1) { return '<a href="'+p1+'">'+p1+'</a>'}),
 
-            getRule(/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g, '<strong>$1</strong>'),
-            getRule(/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g,          '<strong>$1</strong>'),
-            getRule(/\*([^\*\s]{1,2}|[^\s].+?[^\s])\*/g,                             '<em>$1</em>'),
-            getRule(/_([^_\s]{1,2}|[^\s].+?[^\s])_/g,                                '<em>$1</em>'),
-            getRule(/(  )$/,                                                         '<br/>'),
-            getRule(/<(?=[^>]*$)/g,                                                  '&lt;')
+            getRule(/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g, NORMAL, '<strong>$1</strong>'),
+            getRule(/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g,          NORMAL, '<strong>$1</strong>'),
+            getRule(/\*([^\*\s]{1,2}|[^\s].+?[^\s])\*/g,                             NORMAL, '<em>$1</em>'),
+            getRule(/_([^_\s]{1,2}|[^\s].+?[^\s])_/g,                                NORMAL, '<em>$1</em>'),
+            getRule(/(  )$/,                                                         NORMAL, '<br/>'),
+            getRule(/<(?=[^>]*$)/g,                                                  NORMAL, '&lt;')
         ];
 
         return (function() {
@@ -166,7 +159,7 @@ hmd = (function() {
                     var i;
 
                     for(i in ruleArray) {
-                        rules[rules.length] = getRule(ruleArray[i][0], ruleArray[i][1], ruleArray[i][2], ruleArray[i][3], ruleArray[i][4]);
+                        rules[rules.length] = getRule(ruleArray[i][0], NORMAL, ruleArray[i][1]);
                     }
 
                     console.log(rules);
@@ -177,19 +170,7 @@ hmd = (function() {
                 },
 
                 decode: function(string) {
-                    var idx, rule, index, line, ref,
-
-                    replacedString = function(matched, result, additionalReplacer) {
-                        additionalReplacer = additionalReplacer || ''
-                        replacees[replacees.length] = matched.replace(rule.regexp, result)
-                        return string.replace(matched, replacer() + additionalReplacer)
-                    },
-
-                    replace = function(result, additionalReplacer) {
-                        while(line = string.match(rule.regexp)) {
-                            string = replacedString(line[0], result, additionalReplacer)
-                        }
-                    };
+                    var idx, rule, index, line, ref;
 
                     for(idx in rules) {
                         rule = rules[idx]
@@ -199,32 +180,21 @@ hmd = (function() {
                             string = string.replace(rule.regexp, rule.result);
                             break;
 
-                        case NO_DECODE_MORE:
-                            replace(rule.result)
-                            break;
-
-                        case INLINE_LINK:
-                            replace(rule.replacee, rule.notReplaced)
-                            break;
-
-                        case REFERENCED_NO_DECODE_MORE:
-                            while(line = string.match(rule.regexp)) {
-                                ref = reference[line[2] || line[1]];
-                                if(ref != undefined) {
-                                    string = replacedString(line[0], rule.result(ref['url'], line[1], ref['title']))
-                                }
-                            }
-
+                        case NEED_REPLACER:
+                            string = string.replace(rule.regexp, function(match, p1, p2, p3) {
+                                replacees[replacees.length] = rule.result(p1, p2, p3);
+                                return replacer() + (rule.notReplaced != null ? rule.notReplaced(p1) : '');
+                            })
                             break;
 
                         case REFERENCED:
-                            while(line = string.match(rule.regexp)) {
-                                ref = reference[line[2] || line[1]];
-                                if(ref != undefined) {
-                                    string = replacedString(line[0], rule.replacee(ref['url'], ref['title']), rule.notReplaced(line[1]))
-                                }
-                            }
+                            string = string.replace(rule.regexp, function(match, p1, p2) {
+                                ref = reference[p2 || p1];
+                                if(ref == undefined) return match
 
+                                replacees[replacees.length] = rule.result(ref['url'], p1, ref['title'])
+                                return replacer() + (rule.notReplaced != null ? rule.notReplaced(p1) : '');
+                            })
                             break;
                         }
                     }
@@ -233,11 +203,9 @@ hmd = (function() {
                 },
 
                 escape: function(string) {
-                    var line;
-
-                    while((line = string.match(replacerRegexp))) {
-                        string = string.replace(line[0], replacees[line[1]])
-                    }
+                    string = string.replace(replacerRegexp, function(match, p1) {
+                        return replacees[p1]
+                    })
 
                     replacees = Array();
 

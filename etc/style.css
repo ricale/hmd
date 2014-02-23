@@ -2,14 +2,34 @@ html, body {
     height:90%;
 }
 
-code {
-    font-family: 'DejaVu Sans Mono', 'Monaco', 'Consolas'
+blockquote {
+    padding: 5px 5px 5px 40px;
+    margin: 0px;
+    border-left: 5px solid #888;
 }
 
-blockquote {
+blockquote pre {
     margin: 0px;
-    padding-left: 40px;
-    border-left: 5px solid #333;
+}
+
+pre {
+    padding: 5px;
+    margin: 5px;
+
+    background-color: #EEE;
+
+    white-space: pre-wrap;
+}
+
+pre code {
+    padding: 0px;
+    margin: 0px;
+    border: 0px;
+}
+
+code {
+    font-family: 'DejaVu Sans Mono', 'Consolas', 'Courier New';
+    padding: 0px 3px;
 }
 
 #container {
@@ -38,7 +58,6 @@ blockquote {
 
     overflow:auto; 
     border:1px solid #000;
-    background-color:#EEE;
 }
 
 #clear {
