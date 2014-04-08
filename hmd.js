@@ -43,7 +43,7 @@ hmd = (function() {
     regExpBlockquote = /^[ ]{0,3}(>+) ([ ]*.*)$/,
     regExpH1Underlined = /^=+$/,
     regExpH2Underlined = /^-+$/,
-    regExpHR = /^[ ]{0,3}([-_*]+)[ ]*\1[ ]*\1[ ]*$/,
+    regExpHR = /^[ ]{0,3}([-_*][ ]*){3,}$/,
     regExpUL = /^([\s]*)[*+-][ ]+(.*)$/,
     regExpOL = /^([\s]*)[\d]+\.[ ]+(.*)$/,
     regExpBlank = /^[\s]*$/,
