@@ -9,7 +9,7 @@
 
 * Dependency : JavaScript (jQuery)
 * Writer : ricale (ricale@ricalest.net)
-* Version : 0.2.3.1
+* Version : 0.2.5
 
 ## 2. 개요
 
