@@ -759,7 +759,7 @@ hmd = (function() {
         closeCodeblockIfNeeded = function() {
             if(startCodeblock) {
                 if((r.tag != CODEBLOCK && r.tag != BLANK)
-                   || (r.tag == BLANK && (next == null || next.tag != CODEBLOCK))) {
+                   || (r.tag == BLANK && (below == null || below.tag != CODEBLOCK))) {
                     line += "</code></pre>";
                     startCodeblock = false;
                 }
