@@ -757,9 +757,12 @@ hmd = (function() {
         },
 
         closeCodeblockIfNeeded = function() {
-            if(r.tag != CODEBLOCK && startCodeblock) {
-                line += "</code></pre>";
-                startCodeblock = false;
+            if(startCodeblock) {
+                if((r.tag != CODEBLOCK && r.tag != BLANK)
+                   || (r.tag == BLANK && (next == null || next.tag != CODEBLOCK))) {
+                    line += "</code></pre>";
+                    startCodeblock = false;
+                }
             }
         },
 
