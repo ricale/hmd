@@ -44,7 +44,7 @@ hmd ,,(handmade markdown decoder),,는 마크다운 문법을 HTML 형식으로 
 + `text`는 마크다운 문법으로 작성된 글(문자열)이다.
 + HTML로 변역한 결과 문자열을 반환한다.
 
-### 3.3. setAdditionalDecodeInlineFunction
+### 3.3. addInlineRules
 
 추가적으로, 아래의 코드로 인라인 문법을 추가할 수 있다. (이는 필수적인 요소가 아니다.)
 
