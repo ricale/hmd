@@ -7,7 +7,7 @@
 
 ## 1. 기본 정보
 
-* Dependency : JavaScript (jQuery)
+* Dependency : jQuery (JavaScript)
 * Writer : ricale (ricale@ricalest.net)
 * Version : 0.2.5
 
@@ -48,7 +48,11 @@ hmd ,,(handmade markdown decoder),,는 마크다운 문법을 HTML 형식으로 
 
 추가적으로, 아래의 코드로 인라인 문법을 추가할 수 있다. (이는 필수적인 요소가 아니다.)
 
-    hmd.addInlineRules(array);
+    hmd.addInlineRules([
+        [regualarExpression, result],
+        [regualarExpression, result],
+        ..........
+    ]);
 
 작성 예시는 아래와 같다.
 
@@ -408,5 +412,5 @@ _단 <> 안의 문자열이 http:// 혹은 https:// 으로 시작해야지만 �
 ## 6. 문서 정보
 
 - 작성자 : ricale
-- 문서버전 : hmd 0.2.3.1 1
-- 작성일 : 2014. 2. 22.
+- 문서버전 : hmd 0.2.5 1
+- 최종수정일 : 2014. 6. 7.
