@@ -10,11 +10,22 @@
 // 상세 정보는 git 저장소(https://bitbucket.org/ricale/hmd) 참고
 
 hmd = (function() {
-    //
-    // # private variables
-    //////////////////////
-    var self, listLevel, listLevelInBlockquote, analyzedSentences,
 
+    var self, listLevel, listLevelInBlockquote, analyzedSentences,
+        escapeRule, inlineRule, AnalyzedSentence,
+        translate,
+        matching,
+        matchBlockquotes,
+        getIndentLevel,
+        aboveExceptBlank,
+        belowExceptBlank,
+        previousLine,
+        nextLine,
+        idxBelowThisList,
+        idxAboveThisList,
+        decodeInline,
+        replaceForCodeblock,
+        decode,
 
     //
     // # private constants
@@ -40,7 +51,7 @@ hmd = (function() {
     // Blockquote > Heading Underlined > HR > (UL, OL, ContinuedList) > (Codeblock, Heading, ReferencedId)
     // Blank > Codeblock
 
-    regExpBlockquote = /^[ ]{0,3}(>+) ([ ]*.*)$/,
+    regExpBlockquote = /^[ ]{0,3}(>+)[ ]?([ ]*.*)$/,
     regExpH1Underlined = /^=+$/,
     regExpH2Underlined = /^-+$/,
     regExpHR = /^[ ]{0,3}([-_*][ ]*){3,}$/,
@@ -53,7 +64,7 @@ hmd = (function() {
     regExpReferencedId = [
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/,
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/
-    ],
+    ];
 
 
     //
@@ -90,7 +101,7 @@ hmd = (function() {
                 }
             }
         })()
-    })(),
+    })();
 
     inlineRule = (function() {
         var NORMAL = 0,
@@ -211,9 +222,9 @@ hmd = (function() {
                 }
             }
         })();
-    })(),
+    })();
 
-    // ### private inner classes
+    // # private inner classes
     ////////////////////
 
     AnalyzedSentence = function() {
@@ -225,9 +236,52 @@ hmd = (function() {
         this.level = 0;
         // 이 문장의 인용 블록 요소 중첩 정도 (integer)
         this.quote = 0;
+    };
+
+    AnalyzedSentence.prototype = {
+        isParagraph: function() {
+            return this.tag == P
+        },
+
+        isUnorderedList: function() {
+            return this.tag == UL
+        },
+
+        isOrderedList: function() {
+            return this.tag == OL
+        },
+
+        isBlank: function() {
+            return this.tag == BLANK
+        },
+
+        isCodeblock: function() {
+            return this.tag == CODEBLOCK
+        },
+
+        isNotParagraph: function() {
+            return this.tag != P
+        },
+
+        isNotUnorderedList: function() {
+            return this.tag != UL
+        },
+
+        isNotOrderedList: function() {
+            return this.tag != OL
+        },
+
+        isNotBlank: function() {
+            return this.tag != BLANK
+        },
+
+        isNotCodeblock: function() {
+            return this.tag != CODEBLOCK
+        }
     }
 
-    // ### private methods
+    // # private methods
+    ////////////////////
 
     translate = function(sourceString) {
         var array = sourceString.split(/\n/), i, now, r,
@@ -241,7 +295,7 @@ hmd = (function() {
         },
 
         isEndOfList = function(result) {
-            return result.tag != BLANK && result.level == 0
+            return result.isNotBlank() && result.level == 0
         },
 
         cleanListInformation = function() {
@@ -275,7 +329,7 @@ hmd = (function() {
         }
 
         return decode();
-    },
+    };
 
     
     matching = function(string, now) {
@@ -286,11 +340,11 @@ hmd = (function() {
         },
 
         isUnderlineForH1 = function() {
-            return sentence.content.match(regExpH1Underlined) != null && now != 0 && analyzedSentences[now - 1].tag == P
+            return sentence.content.match(regExpH1Underlined) != null && now != 0 && analyzedSentences[now - 1].isParagraph()
         },
 
         isUnderlineForH2 = function() {
-            return sentence.content.match(regExpH2Underlined) != null && now != 0 && analyzedSentences[now - 1].tag == P
+            return sentence.content.match(regExpH2Underlined) != null && now != 0 && analyzedSentences[now - 1].isParagraph()
         },
 
         isHR = function() {
@@ -388,7 +442,7 @@ hmd = (function() {
 
                 r = getListLevel(line[1], sentence.quote != 0);
 
-                if(r.tag != CODEBLOCK) {
+                if(r.isNotCodeblock()) {
                     sentence.tag   = r.tag != null ? r.tag : tag;
                     sentence.level = r.level;
                     sentence.content = line[2];
@@ -397,7 +451,7 @@ hmd = (function() {
                 } else {
                     return false;
                 }
-            }; // visThisReallyListElement
+            }; // isThisReallyListElement
 
 
             if((line = sentence.content.match(regExpTag))) {
@@ -427,7 +481,7 @@ hmd = (function() {
             },
 
             isCodeblock = function() {
-                return line != null && prev.tag == CODEBLOCK && getIndentLevel(line[1]) == 8 && (prev.level - 1) * 4 <= getIndentLevel(line[2])
+                return line != null && prev.isCodeblock() && getIndentLevel(line[1]) == 8 && (prev.level - 1) * 4 <= getIndentLevel(line[2])
             },
 
             listIsContinuedNow = function() { // 공백이 아닌 문장 중 가장 최근의 문장이 리스트인가
@@ -614,7 +668,7 @@ hmd = (function() {
 
         return setParagraph();
 
-    }, // matching
+    }; // matching
 
     // 이 줄(string)이 인용 요소에 포함된 줄인지,
     // 포함되어 있다면 인용 요소가 몇 번이나 중첩되어 있는지 확인한다.
@@ -633,7 +687,7 @@ hmd = (function() {
             result.quote += line[1].length;
             result.content = line[2];
         }
-    },
+    };
 
     // 들여쓰기(blank)가 몇 개의 공백(space)인지 확인해 결과를 반환한다.
     // 탭(tab) 문자는 4개의 공백으로 계산한다.
@@ -652,43 +706,43 @@ hmd = (function() {
         }
 
         return space;
-    },
+    };
 
     // 빈 줄을 제외한 바로 윗줄을 얻는다.
     // 존재하지 않으면 null을 반환한다.
     aboveExceptBlank = function(index) {
         for(var i = index - 1; i >= 0; i--) {
-            if(analyzedSentences[i].tag != BLANK) {
+            if(analyzedSentences[i].isNotBlank()) {
                 return analyzedSentences[i];
             }
         }
 
         return null;
-    },
+    };
 
     // 빈 줄을 제외한 바로 아랫줄을 얻는다.
     // 존재하지 않으면 null을 반환한다.
     belowExceptBlank = function(index) {
         for(var i = index + 1; i < analyzedSentences.length; i++) {
-            if(analyzedSentences[i].tag != BLANK) {
+            if(analyzedSentences[i].isNotBlank()) {
                 return analyzedSentences[i];
             }
         }
 
         return null;
-    },
+    };
 
     // 빈 줄을 포함한 바로 윗줄을 얻는다.
     // 존재하지 않으면 null을 반환한다.
     previousLine = function(index) {
         return index > 1 ? analyzedSentences[index - 1] : null;
-    },
+    };
 
     // 빈 줄을 포함한 바로 아랫줄을 얻는다.
     // 존재하지 않으면 null을 반환한다.
     nextLine = function(index) {
         return index < analyzedSentences.length - 1 ? analyzedSentences[index + 1] : null;
-    },
+    };
 
     // 현재 이어지고 있는 목록 요소가 끝나고 난 뒤의 줄 번호를 얻는다.
     idxBelowThisList = function(index) {
@@ -696,13 +750,13 @@ hmd = (function() {
             if(analyzedSentences[i].level == 0) {
                 return i + 1 < analyzedSentences.length ? i : null;
 
-            } else if(analyzedSentences[i].tag == UL || analyzedSentences[i].tag == OL) {
+            } else if(analyzedSentences[i].isUnorderedList() || analyzedSentences[i].isOrderedList()) {
                 return i != index + 1 ? i : null;
             }
         }
 
         return null;
-    },
+    };
 
     // 현재 이어지고 있는 목록 요소가 시작하기 전의 줄 번호를 얻는다.
     idxAboveThisList = function(index) {
@@ -710,13 +764,13 @@ hmd = (function() {
             if(analyzedSentences[i].level == 0) {
                 return i - 1 >= 0 ? i : null;
 
-            } else if(analyzedSentences[i].tag == UL || analyzedSentences[i].tag == OL) {
+            } else if(analyzedSentences[i].isUnorderedList() || analyzedSentences[i].isOrderedList()) {
                 return i != index - 1 ? i : null;
             }
         }
 
         return null;
-    },
+    };
 
     // 블록 요소에 대한 해석이 끝난 줄의 본문(string)의 인라인 문법들을 찾아 바로 번역한다.
     // 아무런 인라인 문법도 포함하고 있지 않다면 인자를 그대로 반환한다.
@@ -729,7 +783,19 @@ hmd = (function() {
         string = escapeRule.escape(string);
 
         return string;
-    },
+    };
+
+    replaceForCodeblock = function(string) {
+        string = string.replace(/[<>&]/g, function(whole) {
+            switch(whole) {
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '&': return '&amp;';
+            }
+        });
+
+        return string;
+    };
 
     // 해석한 줄들을 전체적으로 확인해 번역한다.
     // this.translate에서 바로 하지 않는 이유는
@@ -743,7 +809,7 @@ hmd = (function() {
         },
 
         closeParagraphIfNeeded = function() {
-            if(r.tag != P && startP) {
+            if(current.isNotParagraph() && startP) {
                 line += "</p>";
                 startP = false;
             }
@@ -758,80 +824,48 @@ hmd = (function() {
 
         closeCodeblockIfNeeded = function() {
             if(startCodeblock) {
-                if((r.tag != CODEBLOCK && r.tag != BLANK)
-                   || (r.tag == BLANK && (below == null || below.tag != CODEBLOCK))) {
+                if((current.isNotCodeblock() && current.isNotBlank()) || (current.isBlank() && (below == null || below.isNotCodeblock()))) {
                     line += "</code></pre>";
                     startCodeblock = false;
                 }
             }
         },
 
-        closeListIfNeeded = function() {
-            if(r.level != 0) {
-                if(r.level < listNested.length) {
-                    for(j = listNested.length - 1; j >= r.level; j--) {
-                        line += "</li></" + listNested[j] + ">";
-                    }
-                    listNested = listNested.slice(0, r.level);
-
-                } else if(above && r.quote < above.quote) {
-                    for(j = listNested.length - 1; j >= 0; j--) {
-                        line += "</li></" + listNested[j] + ">";
-                    }
-                    listNested = Array();
-
-                } else if(r.level == listNested.length){
-                    if(r.tag == UL || r.tag == OL) {
-                        line += "</li>";
-                        if(r.tag != listNested[listNested.length - 1]) {
-                            line += "</" + listNested[listNested.length - 1] + ">";
-                        }
-                    }
-
-                }
-            }
-        },
-
-        closeListCompletelyIfNeeded = function() {
-            if(r.level == 0 && listNested.length != 0) {
-                for(j = listNested.length - 1; j >= 0; j-- ) {
-                    line += "</li></" + listNested[j] + ">";
-                }
-                listNested = Array();
-            }
-        },
-
         startOrCloseBlockquoteIfNeeded = function() {
+            var j;
             // blockquote의 시작/종료 여부를 판단.
-            if(r.quote < nowQuotes && prev != null && prev.tag == BLANK) {
-                for(j = 0; j < nowQuotes - r.quote; j++) {
+            if(current.quote < nowQuotes && prev != null && prev.isBlank()) {
+                for(j = 0; j < nowQuotes - current.quote; j++) {
                     line += "</blockquote>"
                 }
-                nowQuotes = r.quote;
-            } else if(r.quote > nowQuotes) {
-                for(j = 0; j < r.quote - nowQuotes; j++) {
+                nowQuotes = current.quote;
+
+            } else if(current.quote > nowQuotes) {
+                for(j = 0; j < current.quote - nowQuotes; j++) {
                     line += "<blockquote>";
                 }
-                nowQuotes = r.quote;
+                nowQuotes = current.quote;
 
             } 
         },
 
         startListIfNeeded = function() {
-            if(r.level != 0) {
-                if(r.level > listNested.length) {
-                    k = r.level - listNested.length;
+            var j, k;
+
+            if(current.level != 0) {
+                if(current.level > listNested.length) {
+                    k = current.level - listNested.length;
                     for(j = 0; j < k; j++) {
-                        listNested[listNested.length] = r.tag;
-                        line += "<" + r.tag + "><li>";
+                        listNested[listNested.length] = current.tag;
+                        line += "<" + current.tag + "><li>";
                     }
                     startLI = true;
 
                 } else {
-                    if(r.tag == UL || r.tag == OL) {
-                        if(r.level == listNested.length && r.tag != listNested[listNested.length - 1]) {
-                            line += "<" + r.tag + ">";
-                            listNested[listNested.length - 1] = r.tag;
+                    if(current.isUnorderedList() || current.isOrderedList()) {
+                        if(current.level == listNested.length && current.tag != listNested[listNested.length - 1]) {
+                            line += "<" + current.tag + ">";
+                            listNested[listNested.length - 1] = current.tag;
                         }
                         line += "<li>";
                         startLI = true;
@@ -840,18 +874,53 @@ hmd = (function() {
             }
         },
 
+        closeList = function(level) {
+            var j;
+
+            for(j = listNested.length - 1; j >= level; j--) {
+                line += "</li></" + listNested[j] + ">";
+            }
+            listNested = listNested.slice(0, level);
+        },
+
+        closeListIfNeeded = function() {
+            if(current.level != 0) {
+
+                if(current.level < listNested.length) {
+                    closeList(current.level);
+
+                } else if(above && current.quote < above.quote) {
+                    closeList(0);
+
+                } else if(current.level == listNested.length){
+                    if(current.isUnorderedList() || current.isOrderedList()) {
+                        line += "</li>";
+                        if(current.tag != listNested[listNested.length - 1]) {
+                            line += "</" + listNested[listNested.length - 1] + ">";
+                        }
+                    }
+
+                }
+
+            } else if(listNested.length != 0) {
+                closeList(0);
+            }
+        },
+
         startParagraphInListIfNeeded = function() {
             var addOpenParagraphTag = function() {
                 line += "<p>";
                 startP = true;
-            };
+            },
 
-            if(r.level != 0) {
-                if(startLI && !startP && r.tag != CODEBLOCK) {
-                    if(next && below && next.tag == BLANK && below.level == r.level) {
+            j, idxAbove, idxBelow, aboveIdxAbove, belowIdxBelow;
+
+            if(current.level != 0) {
+                if(startLI && !startP && current.isNotCodeblock()) {
+                    if(next && below && next.isBlank() && below.level == current.level) {
                         addOpenParagraphTag();
 
-                    } else if(prev && above && prev.tag == BLANK && above.level == r.level) {
+                    } else if(prev && above && prev.isBlank() && above.level == current.level) {
                         addOpenParagraphTag();
                         
                     } else {
@@ -860,15 +929,15 @@ hmd = (function() {
                         idxBelow = idxBelowThisList(i);
                         belowIdxBelow = belowExceptBlank(idxBelow);
 
-                        if(idxAbove && aboveIdxAbove && analyzedSentences[idxAbove].tag == BLANK && aboveIdxAbove.level == r.level) {
+                        if(idxAbove && aboveIdxAbove && analyzedSentences[idxAbove].isBlank() && aboveIdxAbove.level == current.level) {
                             addOpenParagraphTag();
 
-                        } else if(idxBelow && belowIdxBelow && analyzedSentences[idxBelow].tag == BLANK && belowIdxBelow.level == r.level) {
+                        } else if(idxBelow && belowIdxBelow && analyzedSentences[idxBelow].isBlank() && belowIdxBelow.level == current.level) {
                             addOpenParagraphTag();
 
                         } else {
                             for(j = i + 1; j < idxBelow; j++) {
-                                if(analyzedSentences[j].tag == P) {
+                                if(analyzedSentences[j].isParagraph()) {
                                     analyzedSentences[j].tag = undefined;
                                 }
                             }
@@ -881,16 +950,16 @@ hmd = (function() {
         string = "",
         listNested = Array(),
         nowQuotes = 0,
-        startP = false,
-        startList = false,
+
+        startP         = false,
+        startList      = false,
         startCodeblock = false,
-        line, r, i, j, k, prev, next, above, below,
-        idxAbove, idxBelow, aboveIdxAbove, belowIdxBelow;
+        line, current, i, prev, next, above, below;
 
         // 줄 단위로 확인한다.
         for(i = 0; i < analyzedSentences.length; i++) {
             line = "";
-            r = analyzedSentences[i];
+            current = analyzedSentences[i];
             prev = previousLine(i);
             next = nextLine(i);
             above = aboveExceptBlank(i);
@@ -900,56 +969,48 @@ hmd = (function() {
             closeCodeblockIfNeeded();
 
             // blockquote, ul/ol/li 시작/종료 여부를 판단.
-            if(r.tag != BLANK) {
+            if(current.isNotBlank()) {
                 closeListIfNeeded();
-                closeListCompletelyIfNeeded();
                 startOrCloseBlockquoteIfNeeded();
                 startListIfNeeded();
                 startParagraphInListIfNeeded();
             }
 
-            if(r.tag == CODEBLOCK) {
-                r.content = r.content.replace(/[<>&]/g, function(whole) {
-                    switch(whole) {
-                        case '<': return '&lt;';
-                        case '>': return '&gt;';
-                        case '&': return '&amp;';
-                    }
-                });
-
+            if(current.isCodeblock()) {
+                current.content = replaceForCodeblock(current.content);
             } else {
-                r.content = decodeInline(r.content);
+                current.content = decodeInline(current.content);
             }
 
-            switch(r.tag) {
-                case H1:    line += "<h1>" + r.content + "</h1>"; break;
-                case H2:    line += "<h2>" + r.content + "</h2>"; break;
-                case H3:    line += "<h3>" + r.content + "</h3>"; break;
-                case H4:    line += "<h4>" + r.content + "</h4>"; break;
-                case H5:    line += "<h5>" + r.content + "</h5>"; break;
-                case H6:    line += "<h6>" + r.content + "</h6>"; break;
-                case HR:    line += "<hr/>";                      break;
-                case BLANK: line += "\n";                         break;
-                case P:
-                    startParagraphIfNeeded();
-                    line += r.content;
-                    break;
+            switch(current.tag) {
+            case H1:    line += "<h1>" + current.content + "</h1>"; break;
+            case H2:    line += "<h2>" + current.content + "</h2>"; break;
+            case H3:    line += "<h3>" + current.content + "</h3>"; break;
+            case H4:    line += "<h4>" + current.content + "</h4>"; break;
+            case H5:    line += "<h5>" + current.content + "</h5>"; break;
+            case H6:    line += "<h6>" + current.content + "</h6>"; break;
+            case HR:    line += "<hr/>";                      break;
+            case BLANK: line += "\n";                         break;
+            case P:
+                startParagraphIfNeeded();
+                line += current.content;
+                break;
 
-                case CODEBLOCK:
-                    startCodeblockIfNeeded();
-                    line += r.content + "\n";
-                    break;
+            case CODEBLOCK:
+                startCodeblockIfNeeded();
+                line += current.content + "\n";
+                break;
 
-                default: line += r.content; break;
+            default:
+                line += current.content;
+                break;
             }
 
             string += line;
         }
 
-
-
         return string;
-    }
+    };
 
     return (function() {
         
@@ -965,7 +1026,7 @@ hmd = (function() {
             // - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 contentarea 요소의 셀렉터
             // - targetElementSelector : HTML 형식의 번역 결과가 출력될 HTML 요소의 셀렉터
             run: function(sourceTextareaSelector, targetElementSelector) {
-                var self = this, interval = null;
+                var self = this, interval = null, timeout = null;
 
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 괴이한 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
@@ -975,7 +1036,7 @@ hmd = (function() {
                             if(interval == null) {
                                 interval = setInterval(function() {
                                     $(sourceTextareaSelector).trigger('keyup');
-                                }, 100);
+                                }, 1000);
                             }
 
                         } else {
@@ -988,7 +1049,12 @@ hmd = (function() {
                 });
 
                 $(sourceTextareaSelector).keyup(function(event) {
-                    $(targetElementSelector).html( translate.call(self, $(sourceTextareaSelector).val()) );
+                    if(!timeout) {
+                        timeout = setTimeout(function() {
+                            $(targetElementSelector).html( translate.call(self, $(sourceTextareaSelector).val()) );
+                            timeout = null;
+                        }, 500);
+                    }
                 });
 
                 $(sourceTextareaSelector).trigger('keyup');
