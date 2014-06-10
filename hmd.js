@@ -3,6 +3,12 @@
 //  - version 0.2.3.1
 //  - ricale@ricalest.net
 
+if (!Array.prototype.last) {
+    Array.prototype.last = function(){
+        return this[this.length - 1];
+    };
+};
+
 // # 사용법
 // - hmd.run(sourceTextareaSelector, targetElementSelector)
 // - hmd.decode(string)
@@ -44,6 +50,7 @@ hmd = (function() {
     OL = "ol",
     BLANK = "blank",
     CODEBLOCK = "codeblock",
+    BLOCKQUOTE = "blockquote",
 
     // ## 블록 요소 마크다운의 정규 표현식들
 
@@ -224,6 +231,105 @@ hmd = (function() {
         })();
     })();
 
+    stackedBlockElements = (function() {
+        var elements = Array(),
+            currentQuoteLevel = 0,
+            currentListLevel = 0,
+            paragraphNow = false;
+
+        return (function() {
+            return {
+                init: function() {
+                    elements = Array();
+                    currentQuoteLevel = 0;
+                    currentListLevel = 0;
+                    paragraphNow = false;
+                },
+
+                push: function(tag, level) {
+                    level = level == undefined ? 0 : level
+
+                    if(tag == BLOCKQUOTE) {
+                        currentQuoteLevel += 1;
+                    } else if(tag == UL || tag == OL) {
+                        currentListLevel = level;
+                    } else {
+                        paragraphNow = true;
+                    }
+
+                    elements.push({
+                        'tag':   tag,
+                        'level': level
+                    })
+
+                    switch(tag)
+                    {
+                    case BLOCKQUOTE: return "<blockquote>"
+                    case UL:         return "<ul><li>"
+                    case OL:         return "<ol><li>"
+                    }
+                },
+
+                pop: function() {
+                    var i, element;
+
+                    if(elements.length > 0) {
+                        if(elements.last().tag == BLOCKQUOTE) {
+                            currentQuoteLevel -= 1;
+                        } else {
+                            currentListLevel = 0;
+                            for(i = elements.length - 2; i >= 0; i--) {
+                                if(elements[i].tag != BLOCKQUOTE) {
+                                    currentListLevel = elements[i].level;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    element = elements.pop();
+
+                    switch(element.tag)
+                    {
+                    case BLOCKQUOTE: return "</blockquote>"
+                    case UL:         return "</li></ul>"
+                    case OL:         return "</li></ol>"
+                    }
+                },
+
+                last: function() {
+                    return elements.last();
+                },
+
+                listLevel: function() {
+                    return currentListLevel;
+                },
+
+                quoteLevel: function() {
+                    return currentQuoteLevel;
+                },
+
+                lastIsBlockquote: function() {
+                    var last = elements.last();
+                    return last && last.tag == BLOCKQUOTE
+                },
+
+                lastIsNotBlockquote: function() {
+                    var last = elements.last();
+                    return last && last.tag != BLOCKQUOTE
+                },
+
+                size: function() {
+                    return elements.length;
+                },
+
+                stack: function() {
+                    return elements;
+                }
+            }
+        })()
+    })();
+
     // # private inner classes
     ////////////////////
 
@@ -251,6 +357,10 @@ hmd = (function() {
             return this.tag == OL
         },
 
+        isList: function() {
+            return this.isUnorderedList() || this.isOrderedList();
+        },
+
         isBlank: function() {
             return this.tag == BLANK
         },
@@ -269,6 +379,10 @@ hmd = (function() {
 
         isNotOrderedList: function() {
             return this.tag != OL
+        },
+
+        isNotList: function() {
+            return this.isNotUnorderedList() && this.isNotOrderedList();
         },
 
         isNotBlank: function() {
@@ -292,6 +406,8 @@ hmd = (function() {
             analyzedSentences = Array();
             listLevel = Array();
             listLevelInBlockquote = Array();
+
+            stackedBlockElements.init();
         },
 
         isEndOfList = function(result) {
@@ -325,6 +441,7 @@ hmd = (function() {
                 cleanListInformation()
             }
 
+            console.log(analyzedSentences[now]);
             now++;
         }
 
@@ -831,81 +948,132 @@ hmd = (function() {
             }
         },
 
-        startOrCloseBlockquoteIfNeeded = function() {
-            var j;
-            // blockquote의 시작/종료 여부를 판단.
-            if(current.quote < nowQuotes && prev != null && prev.isBlank()) {
-                for(j = 0; j < nowQuotes - current.quote; j++) {
-                    line += "</blockquote>"
-                }
-                nowQuotes = current.quote;
-
-            } else if(current.quote > nowQuotes) {
-                for(j = 0; j < current.quote - nowQuotes; j++) {
-                    line += "<blockquote>";
-                }
-                nowQuotes = current.quote;
-
-            } 
-        },
-
-        startListIfNeeded = function() {
-            var j, k;
-
-            if(current.level != 0) {
-                if(current.level > listNested.length) {
-                    k = current.level - listNested.length;
-                    for(j = 0; j < k; j++) {
-                        listNested[listNested.length] = current.tag;
-                        line += "<" + current.tag + "><li>";
-                    }
-                    startLI = true;
-
-                } else {
-                    if(current.isUnorderedList() || current.isOrderedList()) {
-                        if(current.level == listNested.length && current.tag != listNested[listNested.length - 1]) {
-                            line += "<" + current.tag + ">";
-                            listNested[listNested.length - 1] = current.tag;
-                        }
-                        line += "<li>";
-                        startLI = true;
+        temp = function() {
+            var last;
+            if(current.quote < stackedBlockElements.quoteLevel()) {
+                if(prev.isBlank()) {
+                    while(stackedBlockElements.lastIsNotBlockquote() || current.quote < stackedBlockElements.quoteLevel()) {
+                        console.log(stackedBlockElements.last())
+                        console.log(stackedBlockElements.quoteLevel())
+                        line += stackedBlockElements.pop();
                     }
                 }
-            }
-        },
 
-        closeList = function(level) {
-            var j;
+            } else if(current.quote > stackedBlockElements.quoteLevel()) {
+                if(prev && prev.isBlank()) {
+                    while(stackedBlockElements.lastIsNotBlockquote()) {
+                        line += stackedBlockElements.pop();
+                    }
+                }
 
-            for(j = listNested.length - 1; j >= level; j--) {
-                line += "</li></" + listNested[j] + ">";
-            }
-            listNested = listNested.slice(0, level);
-        },
+                while(current.quote > stackedBlockElements.quoteLevel()) {
+                    line += stackedBlockElements.push(BLOCKQUOTE, current.quote);
+                }
 
-        closeListIfNeeded = function() {
-            if(current.level != 0) {
+            } else {
+                if(current.level < stackedBlockElements.listLevel()) {
+                    while(stackedBlockElements.lastIsNotBlockquote() && current.level < stackedBlockElements.listLevel()) {
+                        line += stackedBlockElements.pop()
+                    }
 
-                if(current.level < listNested.length) {
-                    closeList(current.level);
-
-                } else if(above && current.quote < above.quote) {
-                    closeList(0);
-
-                } else if(current.level == listNested.length){
-                    if(current.isUnorderedList() || current.isOrderedList()) {
-                        line += "</li>";
-                        if(current.tag != listNested[listNested.length - 1]) {
-                            line += "</" + listNested[listNested.length - 1] + ">";
+                } else if(current.level == stackedBlockElements.listLevel()){
+                    if(current.isList()) {
+                        if(current.tag != stackedBlockElements.last().tag) {
+                            line += stackedBlockElements.pop();
+                        } else {
+                            line += "</li>";
                         }
                     }
 
                 }
+            }
 
-            } else if(listNested.length != 0) {
-                closeList(0);
+
+            if(current.isList() && current.level > stackedBlockElements.listLevel()) {
+                while(current.level > (level = stackedBlockElements.listLevel())) {
+                    line += stackedBlockElements.push(current.tag, current.level);
+                }
+
+            } else if(current.level == stackedBlockElements.listLevel()) {
+                if(current.isList()) {
+                    line += "<li>";
+                }
             }
         },
+
+        // closeListIfNeeded = function() {
+        //     if(current.level != 0) {
+
+        //         if(current.level < listNested.length) {
+        //             closeList(current.level);
+
+        //         } else if(above && current.quote < above.quote) {
+        //             closeList(0);
+
+        //         } else if(current.level == listNested.length){
+        //             if(current.isUnorderedList() || current.isOrderedList()) {
+        //                 line += "</li>";
+        //                 if(current.tag != listNested[listNested.length - 1]) {
+        //                     line += "</" + listNested[listNested.length - 1] + ">";
+        //                 }
+        //             }
+
+        //         }
+
+        //     } else if(listNested.length != 0) {
+        //         closeList(0);
+        //     }
+        // },
+
+        // startOrCloseBlockquoteIfNeeded = function() {
+        //     var count;
+
+        //     if(current.quote < stackedBlockElements.quoteLevel && prev.isBlank()) {
+        //         while(stackedBlockElements.last().tag != BLOCKQUOTE || stackedBlockElements.last().level != current.quote) {
+        //             if(stackedBlockElements.last().tag != BLOCKQUOTE) {
+        //                 line += "</li>"
+        //             }
+        //             line += "</" + stackedBlockElements.pop().tag + ">";
+        //         }
+
+        //     } else if(current.quote > stackedBlockElements.quoteLevel) {
+        //         count = current.quote - stackedBlockElements.quoteLevel;
+        //         for(j = 0; j < count; j++) {
+        //             line += "<blockquote>";
+        //             stackedBlockElements.push({
+        //                 'tag':   BLOCKQUOTE,
+        //                 'level': current.quote
+        //             })
+        //         }
+        //     } 
+        // },
+
+        // startListIfNeeded = function() {
+        //     var j, k;
+
+        //     if(current.level != 0) {
+        //         if(current.level > listNested.length) {
+        //             k = current.level - listNested.length;
+        //             for(j = 0; j < k; j++) {
+        //                 listNested[listNested.length] = current.tag;
+        //                 line += "<" + current.tag + "><li>";
+        //                 stackedBlockElements.push(current.tag)
+        //             }
+        //             startLI = true;
+
+        //         } else {
+        //             if(current.isUnorderedList() || current.isOrderedList()) {
+        //                 if(current.level == listNested.length && current.tag != listNested[listNested.length - 1]) {
+        //                     line += "<" + current.tag + ">";
+        //                     listNested[listNested.length - 1] = current.tag;
+        //                     stackedBlockElements.push(current.tag)
+        //                 }
+        //                 line += "<li>";
+        //                 startLI = true;
+        //             }
+        //         }
+        //     }
+        // },
 
         startParagraphInListIfNeeded = function() {
             var addOpenParagraphTag = function() {
@@ -916,7 +1084,7 @@ hmd = (function() {
             j, idxAbove, idxBelow, aboveIdxAbove, belowIdxBelow;
 
             if(current.level != 0) {
-                if(startLI && !startP && current.isNotCodeblock()) {
+                if(stackedBlockElements.listLevel() > 0 && !startP && current.isNotCodeblock()) {
                     if(next && below && next.isBlank() && below.level == current.level) {
                         addOpenParagraphTag();
 
@@ -952,7 +1120,7 @@ hmd = (function() {
         nowQuotes = 0,
 
         startP         = false,
-        startList      = false,
+        startLI        = false,
         startCodeblock = false,
         line, current, i, prev, next, above, below;
 
@@ -965,15 +1133,20 @@ hmd = (function() {
             above = aboveExceptBlank(i);
             below = belowExceptBlank(i);
 
+            // console.log(current);
+            // console.log(stackedBlockElements.size());
+            // console.log(stackedBlockElements.stack());
+
             closeParagraphIfNeeded();
             closeCodeblockIfNeeded();
 
             // blockquote, ul/ol/li 시작/종료 여부를 판단.
             if(current.isNotBlank()) {
-                closeListIfNeeded();
-                startOrCloseBlockquoteIfNeeded();
-                startListIfNeeded();
-                startParagraphInListIfNeeded();
+                temp();
+                // closeListIfNeeded();
+                // startOrCloseBlockquoteIfNeeded();
+                // startListIfNeeded();
+                // startParagraphInListIfNeeded();
             }
 
             if(current.isCodeblock()) {
@@ -1007,8 +1180,10 @@ hmd = (function() {
             }
 
             string += line;
+            console.log(line);
         }
 
+        console.log(string);
         return string;
     };
 
