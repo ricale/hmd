@@ -420,6 +420,7 @@ window.hmd = (function() {
                 },
 
                 push: function(tag, level) {
+                    var result;
                     level = level == undefined ? 0 : level
 
                     result = (elements.length > 0 && (elements.last().tag == P || elements.last().tag == CODEBLOCK)) ? this.pop() : "";
@@ -860,7 +861,7 @@ window.hmd = (function() {
                     levels = null;
 
                     return result;
-                }; // getListLevel
+                }, // getListLevel
 
                 r = getListLevel(line[1], sentence.quote != 0);
 
@@ -1205,7 +1206,7 @@ window.hmd = (function() {
                 }
             }
 
-            if(blockElementStack.isNotEmpty() && blockElementStack.lastIsNotParagraph() && current.level != 0) {
+            if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && current.level != 0) {
                 prev = analyzedSentences.previousLine();
 
                 if(current.isParagraph() && prev.isBlank()) {
@@ -1231,7 +1232,7 @@ window.hmd = (function() {
                 string += blockElementStack.push(current.tag);
 
             } else if(current.isParagraph()) {
-                if(blockElementStack.isNotEmpty() && blockElementStack.lastIsNotParagraph() && blockElementStack.listLevel() == 0) {
+                if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && blockElementStack.listLevel() == 0) {
                     string += blockElementStack.push(current.tag);
                 }
 
