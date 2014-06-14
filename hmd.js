@@ -23,8 +23,6 @@ hmd = (function() {
         matching,
         matchBlockquotes,
         getIndentLevel,
-        decodeInline,
-        replaceForCodeblock,
         decode,
 
     //
@@ -77,7 +75,8 @@ hmd = (function() {
             returnRegexp = /;;ESCAPE([0-9]+);;/g,
             replacee = ['-', '_', '*', '+', '.', '<',    '>',    '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
             result   = ['-', '_', '*', '+', '.', '&lt;', '&gt;', '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
-            replacer = {};
+            replacer = {},
+            idx;
 
         for(idx in replacee) {
             replacer[replacee[idx]] = ';;ESCAPE' + idx + ';;';
@@ -237,6 +236,7 @@ hmd = (function() {
                 },
 
                 push: function(analyzedSentence) {
+                    analyzedSentence.index = sentences.length
                     sentences.push(analyzedSentence);
                 },
 
@@ -252,7 +252,7 @@ hmd = (function() {
                     return currentIndex
                 },
 
-                goNext: function(index) {
+                goNext: function() {
                     return this.setCurrentIndex(currentIndex != null ? currentIndex + 1 : 0);
                 },
 
@@ -272,7 +272,7 @@ hmd = (function() {
                     return sentences[index];
                 },
 
-                size: function(index) {
+                size: function() {
                     return sentences.length;
                 },
 
@@ -286,9 +286,11 @@ hmd = (function() {
                     return index < sentences.length - 1 ? sentences[index + 1] : null;
                 },
 
-                previousBlank: function() {
+                previousBlank: function(index) {
                     var i;
-                    for(i = currentIndex - 1; i >= 0; i--) {
+                    index = index == undefined ? currentIndex : index
+
+                    for(i = index - 1; i >= 0; i--) {
                         if(sentences[i].isBlank()) {
                             return sentences[i];
                         }
@@ -297,9 +299,11 @@ hmd = (function() {
                     return null;
                 },
 
-                nextBlank: function() {
+                nextBlank: function(index) {
                     var i;
-                    for(i = currentIndex + 1; i < sentences.length; i++) {
+                    index = index == undefined ? currentIndex : index
+
+                    for(i = index + 1; i < sentences.length; i++) {
                         if(sentences[i].isBlank()) {
                             return sentences[i];
                         }
@@ -310,8 +314,8 @@ hmd = (function() {
 
                 previousLineExceptBlank: function(index) {
                     var i;
-
                     index = index == undefined ? currentIndex : index
+
                     for(i = index - 1; i >= 0; i--) {
                         if(sentences[i].isNotBlank()) {
                             return sentences[i];
@@ -323,8 +327,8 @@ hmd = (function() {
 
                 nextLineExceptBlank: function(index) {
                     var i;
-
                     index = index == undefined ? currentIndex : index
+
                     for(i = index + 1; i < sentences.length; i++) {
                         if(sentences[i].isNotBlank()) {
                             return sentences[i];
@@ -334,28 +338,61 @@ hmd = (function() {
                     return null;
                 },
 
-                previousChunk: function() {
-                    var i;
+                previousChunk: function(index) {
+                    var i, endOfChunk, blank;
+                    index = index == undefined ? currentIndex : index
 
-                    for(i = currentIndex - 1; i >= 0; i--) {
-                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine() || sentences[i].isList()) {
+                    for(i = index - 1; i >= 0; i--) {
+                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
                             return null;
+
                         } else if(sentences[i].isBlank()) {
-                            return this.previousLineExceptBlank(i);
+                            endOfChunk = this.previousLineExceptBlank(i);
+                            blank      = this.previousBlank(endOfChunk.index)
+                            return blank == null ? endOfChunk : sentences[blank.index + 1]
                         }
                     }
 
                     return null;
                 },
 
-                nextChunk: function() {
+                nextChunk: function(index) {
                     var i;
+                    index = index == undefined ? currentIndex : index
 
-                    for(i = currentIndex + 1; i < sentences.length; i++) {
-                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine() || sentences[i].isList()) {
+                    for(i = index + 1; i < sentences.length; i++) {
+                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine() || (sentences[i].isList() && sentences[i].listLevel() == this.current().listLevel())) {
                             return null;
+
                         } else if(sentences[i].isBlank()) {
                             return this.nextLineExceptBlank(i);
+                        }
+                    }
+
+                    return null;
+                },
+
+                previousList: function(index) {
+                    var i, passBlankAlready = false
+                    index = index == undefined ? currentIndex : index
+
+                    for(i = index - 1; i >= 0; i--) {
+                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
+                            return null;
+
+                        } else if(sentences[i].isBlank()) {
+                            if(passBlankAlready) {
+                                return null;
+
+                            } else {
+                                passBlankAlready = true
+                            }
+
+                        } else if(sentences[i].isNotBlank() && sentences.level == 0) {
+                            return null
+
+                        } else if(sentences[i].isList()) {
+                            return sentences[i]
                         }
                     }
 
@@ -365,7 +402,7 @@ hmd = (function() {
         })();
     })();
 
-    stackedBlockElements = (function() {
+    blockElementStack = (function() {
         var elements = Array(),
             currentQuoteLevel = 0,
             currentListLevel = 0;
@@ -381,16 +418,16 @@ hmd = (function() {
                 push: function(tag, level) {
                     level = level == undefined ? 0 : level
 
-                    if(elements.length > 0 && elements.last().tag == P) {
-                        result = this.pop();
-                    } else {
-                        result = "";
-                    }
+                    result = (elements.length > 0 && (elements.last().tag == P || elements.last().tag == CODEBLOCK)) ? this.pop() : "";
 
                     if(tag == BLOCKQUOTE) {
                         currentQuoteLevel += 1;
+
                     } else if(tag == UL || tag == OL) {
-                        currentListLevel = level;
+                        currentListLevel = level
+                        if(currentListLevel != 0) {
+                            currentListLevel += currentQuoteLevel * 100
+                        }
                     }
 
                     elements.push({
@@ -404,6 +441,13 @@ hmd = (function() {
                     case UL:         return result + "<ul><li>"
                     case OL:         return result + "<ol><li>"
                     case P:          return result + "<p>"
+                    case H1:         return result + "<h1>"
+                    case H2:         return result + "<h2>"
+                    case H3:         return result + "<h3>"
+                    case H4:         return result + "<h4>"
+                    case H5:         return result + "<h5>"
+                    case H6:         return result + "<h6>"
+                    case CODEBLOCK:  return result + "<pre><code>"
                     }
                 },
 
@@ -416,12 +460,16 @@ hmd = (function() {
                             currentQuoteLevel -= 1;
 
                         } else if(last.tag == UL || last.tag == OL) {
-                            currentListLevel = 0;
+                            currentListLevel = 0
                             for(i = elements.length - 2; i >= 0; i--) {
                                 if(elements[i].tag != BLOCKQUOTE) {
                                     currentListLevel = elements[i].level;
                                     break;
                                 }
+                            }
+
+                            if(currentListLevel != 0) {
+                                currentListLevel += currentQuoteLevel * 100
                             }
 
                         }
@@ -435,6 +483,13 @@ hmd = (function() {
                     case UL:         return "</li></ul>"
                     case OL:         return "</li></ol>"
                     case P:          return "</p>"
+                    case H1:         return "</h1>"
+                    case H2:         return "</h2>"
+                    case H3:         return "</h3>"
+                    case H4:         return "</h4>"
+                    case H5:         return "</h5>"
+                    case H6:         return "</h6>"
+                    case CODEBLOCK:  return "</code></pre>"
                     }
                 },
 
@@ -470,6 +525,26 @@ hmd = (function() {
                     return last && last.tag != P
                 },
 
+                lastIsList: function() {
+                    var last = elements.last();
+                    return last && (last.tag == UL || last.tag == OL)
+                },
+
+                lastIsNotList: function() {
+                    var last = elements.last();
+                    return last && last.tag != UL && last.tag != OL
+                },
+
+                lastIsCodeblock: function() {
+                    var last = elements.last();
+                    return last && last.tag == CODEBLOCK
+                },
+
+                lastIsNotCodeblock: function() {
+                    var last = elements.last();
+                    return last && last.tag != CODEBLOCK
+                },
+
                 size: function() {
                     return elements.length;
                 },
@@ -485,6 +560,7 @@ hmd = (function() {
     ////////////////////
 
     AnalyzedSentence = function() {
+        this.index = null;
         // 이 문장의 실제 내용 (string)
         this.content = null;
         // 이 문장에 적용될 HTML의 블록요소를 구분하기 위한 구분자 (string)
@@ -496,6 +572,10 @@ hmd = (function() {
     };
 
     AnalyzedSentence.prototype = {
+        listLevel: function() {
+            return this.level == 0 ? 0 : this.level + this.quote * 100
+        },
+
         isParagraph: function() {
             return this.tag == P
         },
@@ -584,7 +664,7 @@ hmd = (function() {
             listLevelInBlockquote = Array();
 
             analyzedSentences.init();
-            stackedBlockElements.init();
+            blockElementStack.init();
         },
 
         isEndOfList = function(result) {
@@ -613,6 +693,8 @@ hmd = (function() {
                 if(isEndOfList(r)) {
                     cleanListInformation()
                 }
+
+                console.log(r)
             }
         }
 
@@ -818,7 +900,16 @@ hmd = (function() {
                             return null;
                         }
                     } else {
-                        return null;
+                        above = analyzedSentences.previousList(analyzedSentences.size())
+                        if(above && result.quote == above.quote) {
+                            line = result.content.match(regExpContinuedList);
+
+                            if(line == null) {
+                                return null;
+                            }
+                        } else {
+                            return null;
+                        }
                     }
                 }
 
@@ -995,64 +1086,17 @@ hmd = (function() {
         return space;
     };
 
-    // 블록 요소에 대한 해석이 끝난 줄의 본문(string)의 인라인 문법들을 찾아 바로 번역한다.
-    // 아무런 인라인 문법도 포함하고 있지 않다면 인자를 그대로 반환한다.
-    // 추가적으로 사용자가 번역 함수를 추가했다면 해당 함수 또한 실행된다.
-    decodeInline = function(string) {
-        string = escapeRule.decode(string);
-        string = inlineRule.decode(string);
-
-        string = inlineRule.escape(string);
-        string = escapeRule.escape(string);
-
-        return string;
-    };
-
-    replaceForCodeblock = function(string) {
-        string = string.replace(/[<>&]/g, function(whole) {
-            switch(whole) {
-                case '<': return '&lt;';
-                case '>': return '&gt;';
-                case '&': return '&amp;';
-            }
-        });
-
-        return string;
-    };
-
     // 해석한 줄들을 전체적으로 확인해 번역한다.
     // this.translate에서 바로 하지 않는 이유는
     // 전후 줄의 상태에 따라 번역이 달라질 수 있기 때문이다.
     decode = function() {
-        var startParagraphIfNeeded = function() {
-            if(!startP) {
-                line += "<p>";
-                startP = true;
-            }
-        },
-
-        closeParagraphIfNeeded = function() {
-            if(analyzedSentences.current().isNotParagraph() && startP) {
-                line += "</p>";
-                startP = false;
-            }
-        },
-
-        startCodeblockIfNeeded = function() {
-            if(!startCodeblock) {
-                line += "<pre><code>";
-                startCodeblock = true;
-            }
-        },
-
-        closeCodeblockIfNeeded = function() {
+        var closeCodeblockIfNeeded = function() {
             var current = analyzedSentences.current(),
                 below = analyzedSentences.nextLineExceptBlank();
 
-            if(startCodeblock) {
+            if(blockElementStack.lastIsCodeblock()) {
                 if((current.isNotCodeblock() && current.isNotBlank()) || (current.isBlank() && (below == null || below.isNotCodeblock()))) {
-                    line += "</code></pre>";
-                    startCodeblock = false;
+                    string += blockElementStack.pop();
                 }
             }
         },
@@ -1061,93 +1105,128 @@ hmd = (function() {
             var current = analyzedSentences.current(),
                 prev = analyzedSentences.previousLine();
 
-            if(current.quote < stackedBlockElements.quoteLevel()) {
+            if(current.quote < blockElementStack.quoteLevel()) {
                 if(prev.isBlank()) {
-                    while(current.quote < stackedBlockElements.quoteLevel()) {
-                        line += stackedBlockElements.pop();
+                    while(current.quote < blockElementStack.quoteLevel()) {
+                        string += blockElementStack.pop();
                     }
                 }
 
-            } else if(current.quote > stackedBlockElements.quoteLevel()) {
+                if(current.listLevel() < blockElementStack.listLevel()) {
+                    while(blockElementStack.lastIsNotBlockquote() && current.listLevel() < blockElementStack.listLevel()) {
+                        string += blockElementStack.pop()
+                    }
+
+                } else if(current.listLevel() == blockElementStack.listLevel()) {
+                    if(current.isList()) {
+                        if(current.tag != blockElementStack.last().tag) {
+                            string += blockElementStack.pop();
+                        } else {
+                            string += "</li>";
+                        }
+                    }
+
+                }
+
+            } else if(current.quote > blockElementStack.quoteLevel()) {
                 if(prev && prev.isBlank()) {
-                    while(stackedBlockElements.lastIsNotBlockquote()) {
-                        line += stackedBlockElements.pop();
+                    while(blockElementStack.lastIsNotBlockquote()) {
+                        string += blockElementStack.pop();
                     }
                 }
 
-                while(current.quote > stackedBlockElements.quoteLevel()) {
-                    line += stackedBlockElements.push(BLOCKQUOTE, current.quote);
+                while(current.quote > blockElementStack.quoteLevel()) {
+                    string += blockElementStack.push(BLOCKQUOTE, current.quote);
                 }
 
             } else {
-                if(current.level < stackedBlockElements.listLevel()) {
-                    while(stackedBlockElements.lastIsNotBlockquote() && current.level < stackedBlockElements.listLevel()) {
-                        line += stackedBlockElements.pop()
+                if(current.listLevel() < blockElementStack.listLevel()) {
+                    while(blockElementStack.lastIsNotBlockquote() && current.listLevel() < blockElementStack.listLevel()) {
+                        string += blockElementStack.pop()
                     }
 
-                } else if(current.level == stackedBlockElements.listLevel()){
+                } else if(current.listLevel() == blockElementStack.listLevel()) {
                     if(current.isList()) {
-                        while(stackedBlockElements.lastIsParagraph()) {
-                            line += stackedBlockElements.pop();
-                        }
-
-                        if(current.tag != stackedBlockElements.last().tag) {
-                            line += stackedBlockElements.pop();
+                        if(current.tag != blockElementStack.last().tag) {
+                            string += blockElementStack.pop();
                         } else {
-                            line += "</li>";
+                            string += "</li>";
                         }
                     }
 
                 }
             }
 
-
-            if(current.isList() && current.level > stackedBlockElements.listLevel()) {
-                while(current.level > (level = stackedBlockElements.listLevel())) {
-                    line += stackedBlockElements.push(current.tag, current.level);
+            if(current.isList() && current.listLevel() > blockElementStack.listLevel()) {
+                while(current.listLevel() > (level = blockElementStack.listLevel())) {
+                    string += blockElementStack.push(current.tag, current.level);
                 }
 
-            } else if(current.level == stackedBlockElements.listLevel()) {
+            } else if(current.listLevel() == blockElementStack.listLevel()) {
                 if(current.isList()) {
-                    line += "<li>";
+                    string += "<li>";
                 }
             }
         },
 
         openParagrapTaghInNestableTagIfNeeded = function() {
             var current = analyzedSentences.current(),
-                prev, previousChunk, nextChunk;
+                prev, next, previousChunk, nextChunk;
 
-            if(current.level != 0) {
+            if(blockElementStack.lastIsNotParagraph() && current.level != 0) {
                 prev = analyzedSentences.previousLine();
-                if(prev && prev.isBlank()) {
-                    previousChunk = analyzedSentences.previousChunk();
+                next = analyzedSentences.nextLine();
+
+                if(current.isParagraph() && prev.isBlank()) {
+                    if(current.listLevel() == blockElementStack.listLevel()) {
+                        string += blockElementStack.push(P, 0);
+                    }
+
+                } else if(current.isList()) {
                     nextChunk = analyzedSentences.nextChunk();
+                    previousChunk = analyzedSentences.previousChunk();
 
-                    if(previousChunk && current.level == previousChunk.level && current.quote == previousChunk.quote) {
-                        line += stackedBlockElements.push(P, 0);
-
-                    } else if(nextChunk && current.level == nextChunk.level && current.quote == nextChunk.quote) {
-                        line += stackedBlockElements.push(P, 0);
+                    if(nextChunk && current.listLevel() == nextChunk.listLevel()) {
+                        string += blockElementStack.push(P, 0);
+                    } else if(previousChunk && current.listLevel() == previousChunk.listLevel()) {
+                        string += blockElementStack.push(P, 0);
                     }
                 }
             }
         },
 
-        string = "",
+        decodeInline = function(string) {
+            string = escapeRule.decode(string);
+            string = inlineRule.decode(string);
 
-        startP         = false,
-        startLI        = false,
-        startCodeblock = false,
-        line, current;
+            string = inlineRule.escape(string);
+            string = escapeRule.escape(string);
+
+            return string;
+        },
+
+        replaceForCodeblock = function(string) {
+            string = string.replace(/[<>&]/g, function(whole) {
+                switch(whole) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                }
+            });
+
+            return string;
+        },
+
+        string = "", current;
 
         // 줄 단위로 확인한다.
         while(analyzedSentences.goNext() != null) {
-            line = "";
-
             current = analyzedSentences.current();
 
-            // closeParagraphIfNeeded();
+            if(analyzedSentences.current().isNotParagraph() && blockElementStack.lastIsParagraph()) {
+                string += blockElementStack.pop();
+            }
+
             closeCodeblockIfNeeded();
 
             if(current.isNotBlank()) {
@@ -1162,32 +1241,44 @@ hmd = (function() {
             }
 
             switch(current.tag) {
-            case H1:    line += "<h1>" + current.content + "</h1>"; break;
-            case H2:    line += "<h2>" + current.content + "</h2>"; break;
-            case H3:    line += "<h3>" + current.content + "</h3>"; break;
-            case H4:    line += "<h4>" + current.content + "</h4>"; break;
-            case H5:    line += "<h5>" + current.content + "</h5>"; break;
-            case H6:    line += "<h6>" + current.content + "</h6>"; break; z
-            case HR:    line += "<hr/>";                      break;
-            case BLANK: line += "\n";                         break;
+            case H1:
+            case H2:
+            case H3:
+            case H4:
+            case H5:
+            case H6:
+                string += blockElementStack.push(current.tag) + current.content + blockElementStack.pop();
+                break;
+
+            case HR:
+                string += "<hr/>";
+                break;
+
+            case BLANK:
+                string += "\n";
+                break;
+
             case P:
-                // startParagraphIfNeeded();
-                line += current.content;
+                if(blockElementStack.listLevel() == 0 && blockElementStack.quoteLevel() == 0) {
+                    string += blockElementStack.push(current.tag, 0);
+                }
+                string += current.content;
                 break;
 
             case CODEBLOCK:
-                startCodeblockIfNeeded();
-                line += current.content + "\n";
+                if(blockElementStack.lastIsNotCodeblock()) {
+                    string += blockElementStack.push(current.tag, 0)
+                }
+                string += current.content + "\n";
                 break;
 
             default:
-                line += current.content;
+                string += current.content;
                 break;
             }
-
-            string += line;
         }
 
+        console.log(string);
         return string;
     };
 
