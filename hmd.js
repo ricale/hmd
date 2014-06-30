@@ -352,7 +352,11 @@ window.hmd = (function() {
 
                         } else if(sentences[i].isBlank()) {
                             endOfChunk = this.previousLineExceptBlank(i);
-                            blank      = this.previousBlank(endOfChunk.index)
+                            if(endOfChunk == null) {
+                                return null;
+                            }
+
+                            blank = this.previousBlank(endOfChunk.index)
                             return blank == null ? endOfChunk : sentences[blank.index + 1]
                         }
                     }
