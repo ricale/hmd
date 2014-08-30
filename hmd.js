@@ -713,8 +713,8 @@ window.hmd = (function() {
     // # private methods
     ////////////////////
 
-    translate = function(sourceString) {
-        var array = sourceString.split(/\n/), i, r, self,
+    translate = function(sourceString, callback) {
+        var array = sourceString.split(/\n/), i, r, self, finalResult,
 
         initAll = function() {
             inlineRule.init();
@@ -1313,17 +1313,33 @@ window.hmd = (function() {
             // - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 contentarea 요소의 셀렉터
             // - targetElementSelector : HTML 형식의 번역 결과가 출력될 HTML 요소의 셀렉터
             run: function(sourceTextareaSelector, targetElementSelector, options) {
-                var self     = this,
-                    interval = null,
-                    timeout  = null,
-                    firefoxKeyTriggerFlag = false,
-                    startPosition, endPosition;
+                var scrollTargetElement = function(event) {
+                    var $target = $(targetElementSelector),
+                        $this   = $(sourceTextareaSelector),
+                        targetElement = $target[0],
+                        thisElement   = $this[0],
+                        targetScrollHeight = targetElement.scrollHeight,
+                        targetClientHeight = targetElement.clientHeight,
+                        thisScrollTop    = thisElement.scrollTop,
+                        thisScrollHeight = thisElement.scrollHeight,
+                        thisClientHeight = thisElement.clientHeight,
+                        scrollTop = (thisScrollTop / (thisScrollHeight - thisClientHeight)) * (targetScrollHeight - targetClientHeight);
+
+                    $target.scrollTop(scrollTop);
+                },
+
+                self     = this,
+                interval = null,
+                timeout  = null,
+                firefoxKeyTriggerFlag = false,
+                startPosition, endPosition;
+
 
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 괴이한 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
                 $(sourceTextareaSelector).keydown(function(event) {
-                    var $target = $(this),
-                        targetElement = $target[0],
+                    var $this = $(this),
+                        thisElement = $this[0],
                         tabCharacter = '    ';
 
                     if(!firefoxKeyTriggerFlag) {
@@ -1348,30 +1364,32 @@ window.hmd = (function() {
                     if(event.keyCode == 9 /* TAB Key */) {
                         event.preventDefault();
 
-                        if (document.selection) {
-                            targetElement.focus();
+                        if(document.selection) {
+                            thisElement.focus();
                             selectedRange = document.selection.createRange();
                             selectedRange.text = tabCharacter;
 
                         } else {
-                            startPosition = targetElement.selectionStart;
-                            endPosition   = targetElement.selectionEnd;
-                            targetElement.value = targetElement.value.substring(0, startPosition)
+                            startPosition = thisElement.selectionStart;
+                            endPosition   = thisElement.selectionEnd;
+                            thisElement.value = thisElement.value.substring(0, startPosition)
                                                     + tabCharacter
-                                                    + targetElement.value.substring(endPosition, targetElement.value.length);
+                                                    + thisElement.value.substring(endPosition, thisElement.value.length);
 
-                            targetElement.selectionStart = startPosition + tabCharacter.length;
-                            targetElement.selectionEnd   = endPosition   + tabCharacter.length;
+                            thisElement.selectionStart = startPosition + tabCharacter.length;
+                            thisElement.selectionEnd   = endPosition   + tabCharacter.length;
                         }
                     }
 
                     if(!timeout) {
                         timeout = setTimeout(function() {
                             $(targetElementSelector).html( translate.call(self, $(sourceTextareaSelector).val()) );
+                            scrollTargetElement();;
                             timeout = null;
                         }, 500);
                     }
-                });
+
+                }).scroll(scrollTargetElement);
 
                 $(sourceTextareaSelector).trigger('keydown');
             },
