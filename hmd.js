@@ -1312,30 +1312,59 @@ window.hmd = (function() {
 
             // - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 contentarea 요소의 셀렉터
             // - targetElementSelector : HTML 형식의 번역 결과가 출력될 HTML 요소의 셀렉터
-            run: function(sourceTextareaSelector, targetElementSelector) {
-                var self = this, interval = null, timeout = null;
+            run: function(sourceTextareaSelector, targetElementSelector, options) {
+                var self     = this,
+                    interval = null,
+                    timeout  = null,
+                    firefoxKeyTriggerFlag = false,
+                    startPosition, endPosition;
 
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 괴이한 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
                 $(sourceTextareaSelector).keydown(function(event) {
-                    if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
-                        if (event.keyCode == 0) {
-                            if(interval == null) {
-                                interval = setInterval(function() {
-                                    $(sourceTextareaSelector).trigger('keyup');
-                                }, 1000);
-                            }
+                    var $target = $(this),
+                        targetElement = $target[0],
+                        tabCharacter = '    ';
 
-                        } else {
-                            if(interval != null) {
-                                clearInterval(interval);
-                                interval = null;
+                    if(!firefoxKeyTriggerFlag) {
+                        if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
+                            if (event.keyCode == 0) {
+                                if(interval == null) {
+                                    interval = setInterval(function() {
+                                        $(sourceTextareaSelector).trigger('keydown');
+                                        firefoxKeyTriggerFlag = true;
+                                    }, 1000);
+                                }
+
+                            } else {
+                                if(interval != null) {
+                                    clearInterval(interval);
+                                    interval = null;
+                                }
                             }
                         }
                     }
-                });
 
-                $(sourceTextareaSelector).keyup(function(event) {
+                    if(event.keyCode == 9 /* TAB Key */) {
+                        event.preventDefault();
+
+                        if (document.selection) {
+                            targetElement.focus();
+                            selectedRange = document.selection.createRange();
+                            selectedRange.text = tabCharacter;
+
+                        } else {
+                            startPosition = targetElement.selectionStart;
+                            endPosition   = targetElement.selectionEnd;
+                            targetElement.value = targetElement.value.substring(0, startPosition)
+                                                    + tabCharacter
+                                                    + targetElement.value.substring(endPosition, targetElement.value.length);
+
+                            targetElement.selectionStart = startPosition + tabCharacter.length;
+                            targetElement.selectionEnd   = endPosition   + tabCharacter.length;
+                        }
+                    }
+
                     if(!timeout) {
                         timeout = setTimeout(function() {
                             $(targetElementSelector).html( translate.call(self, $(sourceTextareaSelector).val()) );
@@ -1344,7 +1373,7 @@ window.hmd = (function() {
                     }
                 });
 
-                $(sourceTextareaSelector).trigger('keyup');
+                $(sourceTextareaSelector).trigger('keydown');
             },
 
             // 추가적인 인라인 요소 번역 함수를 설정한다.
