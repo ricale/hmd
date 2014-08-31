@@ -1328,19 +1328,25 @@ window.hmd = (function() {
                     $target.scrollTop(scrollTop);
                 },
 
+                $sourceTextarea = $(sourceTextareaSelector),
                 self     = this,
                 interval = null,
                 timeout  = null,
                 firefoxKeyTriggerFlag = false,
                 startPosition, endPosition;
 
+                options = options == undefined ? {} : options
+                options.UseTabKey         = options.UseTabKey == undefined         ? true    : options.UseTabKey
+                options.TabCharacter      = options.TabCharacter == undefined      ? 'space' : options.TabCharacter
+                options.AutoScrollPreview = options.AutoScrollPreview == undefined ? true    : options.AutoScrollPreview
+
 
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 괴이한 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
-                $(sourceTextareaSelector).keydown(function(event) {
+                $sourceTextarea.keydown(function(event) {
                     var $this = $(this),
                         thisElement = $this[0],
-                        tabCharacter = '    ';
+                        tabCharacter;
 
                     if(!firefoxKeyTriggerFlag) {
                         if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
@@ -1361,8 +1367,9 @@ window.hmd = (function() {
                         }
                     }
 
-                    if(event.keyCode == 9 /* TAB Key */) {
+                    if(event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
                         event.preventDefault();
+                        tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    '
 
                         if(document.selection) {
                             thisElement.focus();
@@ -1384,14 +1391,19 @@ window.hmd = (function() {
                     if(!timeout) {
                         timeout = setTimeout(function() {
                             $(targetElementSelector).html( translate.call(self, $(sourceTextareaSelector).val()) );
-                            scrollTargetElement();;
+                            if(options.AutoScrollPreview) {
+                                scrollTargetElement();
+                            }
+
                             timeout = null;
                         }, 500);
                     }
 
-                }).scroll(scrollTargetElement);
+                }).trigger('keydown');
 
-                $(sourceTextareaSelector).trigger('keydown');
+                if(options.AutoScrollPreview) {
+                    $sourceTextarea.scroll(scrollTargetElement)
+                }
             },
 
             // 추가적인 인라인 요소 번역 함수를 설정한다.
