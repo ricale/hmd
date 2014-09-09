@@ -1328,12 +1328,78 @@ window.hmd = (function() {
                     $target.scrollTop(scrollTop);
                 },
 
+                insertTabCharacter = function(textarea, shifted) {
+                    var setSelectionPosition = function() {
+                        var matched, startOffset = 0, endOffset = 0;
+
+                        if(shifted) {
+                            matched = targetString.match(replacedRegExp)
+                            matched = matched == null ? [] : matched
+
+                            startOffset -= (matched.length != 0 ? targetString.match(replacedRegExp)[0].length - 1 : 0);
+                            $.each(matched, function(index, value) {
+                                endOffset -= (value.length - 1)
+                            })
+
+                        } else {
+                            startOffset = tabCharacter.length;
+                            endOffset   = (tabCharacter.length * (selectedString.match(replacedRegExp).length + 1));
+                        }
+
+                        textarea.selectionStart = startPosition + startOffset;
+                        textarea.selectionEnd   = endPosition   + endOffset;
+                    },
+
+                    tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    ',
+                    startPosition, endPosition, replaceStartPosition, selectedString, textareaString, replacingString, targetString, replacedRegExp;
+
+
+                    if(document.selection) {
+                        textarea.focus();
+                        selectedRange = document.selection.createRange();
+                        selectedRange.text = tabCharacter;
+
+                    } else {
+                        textareaString = textarea.value;
+                        startPosition  = textarea.selectionStart;
+                        endPosition    = textarea.selectionEnd;
+
+                        selectedString = textareaString.substring(startPosition, endPosition)
+
+                        if(selectedString.match(/\n/g) == null) {
+                            textarea.value = textareaString.substring(0, startPosition)
+                                             + tabCharacter
+                                             + textareaString.substring(endPosition, textareaString.length);
+
+                            textarea.selectionStart = startPosition + tabCharacter.length;
+                            textarea.selectionEnd   = startPosition + tabCharacter.length;
+
+                        } else {
+                            if(shifted) {
+                                replacedRegExp = /\n[ ]{1,4}/g
+                                replacingString = "\n"
+                            } else {
+                                replacedRegExp = /\n(?!\n)/g
+                                replacingString = "\n"+tabCharacter
+                            }
+
+                            replaceStartPosition = textareaString.lastIndexOf('\n', startPosition - 1);
+                            targetString = textareaString.substring(replaceStartPosition, endPosition)
+
+                            textarea.value = textareaString.substring(0, replaceStartPosition)
+                                             + targetString.replace(replacedRegExp, replacingString)
+                                             + textareaString.substring(endPosition, textareaString.length);
+
+                            setSelectionPosition(targetString);
+                        }
+                    }
+                },
+
                 $sourceTextarea = $(sourceTextareaSelector),
                 self     = this,
                 interval = null,
                 timeout  = null,
-                firefoxKeyTriggerFlag = false,
-                startPosition, endPosition;
+                firefoxKeyTriggerFlag = false;
 
                 options = options == undefined ? {} : options
                 options.UseTabKey         = options.UseTabKey == undefined         ? true    : options.UseTabKey
@@ -1341,11 +1407,10 @@ window.hmd = (function() {
                 options.AutoScrollPreview = options.AutoScrollPreview == undefined ? true    : options.AutoScrollPreview
 
 
-                // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 괴이한 현상이 있다.
+                // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
                 $sourceTextarea.keydown(function(event) {
                     var $this = $(this),
-                        thisElement = $this[0],
                         tabCharacter;
 
                     if(!firefoxKeyTriggerFlag) {
@@ -1369,23 +1434,7 @@ window.hmd = (function() {
 
                     if(event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
                         event.preventDefault();
-                        tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    '
-
-                        if(document.selection) {
-                            thisElement.focus();
-                            selectedRange = document.selection.createRange();
-                            selectedRange.text = tabCharacter;
-
-                        } else {
-                            startPosition = thisElement.selectionStart;
-                            endPosition   = thisElement.selectionEnd;
-                            thisElement.value = thisElement.value.substring(0, startPosition)
-                                                    + tabCharacter
-                                                    + thisElement.value.substring(endPosition, thisElement.value.length);
-
-                            thisElement.selectionStart = startPosition + tabCharacter.length;
-                            thisElement.selectionEnd   = endPosition   + tabCharacter.length;
-                        }
+                        insertTabCharacter(this, event.shiftKey);
                     }
 
                     if(!timeout) {
@@ -1396,7 +1445,7 @@ window.hmd = (function() {
                             }
 
                             timeout = null;
-                        }, 500);
+                        }, 100);
                     }
 
                 }).trigger('keydown');
