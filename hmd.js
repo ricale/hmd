@@ -1329,29 +1329,14 @@ window.hmd = (function() {
                 },
 
                 insertTabCharacter = function(textarea, shifted) {
-                    var setSelectionPosition = function() {
-                        var matched, startOffset = 0, endOffset = 0;
-
-                        if(shifted) {
-                            matched = targetString.match(replacedRegExp)
-                            matched = matched == null ? [] : matched
-
-                            startOffset -= (matched.length != 0 ? targetString.match(replacedRegExp)[0].length - 1 : 0);
-                            $.each(matched, function(index, value) {
-                                endOffset -= (value.length - 1)
-                            })
-
-                        } else {
-                            startOffset = tabCharacter.length;
-                            endOffset   = (tabCharacter.length * (selectedString.match(replacedRegExp).length + 1));
-                        }
-
-                        textarea.selectionStart = startPosition + startOffset;
-                        textarea.selectionEnd   = endPosition   + endOffset;
+                    var replaceString = function(start, end, insertedString) {
+                        textarea.value = textareaString.substring(0, start) + insertedString + textareaString.substring(end, textareaString.length);
                     },
 
-                    tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    ',
-                    startPosition, endPosition, replaceStartPosition, selectedString, textareaString, replacingString, targetString, replacedRegExp;
+                    // tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    ',
+                    tabCharacter = '    ', removedTabCharacterLength, removedTabs, firstTabLength,
+                    startPosition, endPosition, replaceStartPosition, replaceEndPosition,
+                    textareaString, selectedString, targetString, replacedString, replacedRegExp = null;
 
 
                     if(document.selection) {
@@ -1366,31 +1351,82 @@ window.hmd = (function() {
 
                         selectedString = textareaString.substring(startPosition, endPosition)
 
-                        if(selectedString.match(/\n/g) == null) {
-                            textarea.value = textareaString.substring(0, startPosition)
-                                             + tabCharacter
-                                             + textareaString.substring(endPosition, textareaString.length);
+                        if(selectedString.match(/\n/) == null) {
+                            if(shifted) {
+                                replaceStartPosition = textareaString.lastIndexOf('\n', startPosition - 1);
+                                replaceEndPosition   = textareaString.indexOf('\n', endPosition);
+                                if(replaceEndPosition == -1)
+                                    replaceEndPosition = textareaString.length - 1
+                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition)
 
-                            textarea.selectionStart = startPosition + tabCharacter.length;
-                            textarea.selectionEnd   = startPosition + tabCharacter.length;
+                                replacedRegExp = /(^|\n)([ ]{1,4})/
+
+                                if(replacedString.match(replacedRegExp) == null) {
+                                    removedTabCharacterLength = 0
+                                } else {
+                                    removedTabCharacterLength = replacedString.match(replacedRegExp)[2].length
+                                }
+
+                                replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, '$1'))
+
+                                textarea.selectionStart = startPosition - removedTabCharacterLength;
+                                if(textarea.selectionStart < replaceStartPosition + 1)
+                                    textarea.selectionStart = replaceStartPosition + 1
+                                textarea.selectionEnd = textarea.selectionStart + (endPosition - startPosition)
+
+                            } else {
+                                replaceString(startPosition, endPosition, tabCharacter)
+                                textarea.selectionStart = startPosition + tabCharacter.length;
+                                textarea.selectionEnd   = startPosition + tabCharacter.length;
+                            }
 
                         } else {
                             if(shifted) {
-                                replacedRegExp = /\n[ ]{1,4}/g
-                                replacingString = "\n"
+                                replaceStartPosition = textareaString.lastIndexOf('\n', startPosition - 1);
+                                replaceEndPosition   = textareaString.indexOf('\n', endPosition);
+                                if(replaceEndPosition == -1)
+                                    replaceEndPosition = textareaString.length - 1
+                                targetString = textareaString.substring(replaceStartPosition, replaceEndPosition)
+
+                                replacedRegExp = /(^|\n)([ ]{1,4})/g
+
+                                removedTabs = targetString.match(replacedRegExp)
+                                removedTabCharacterLength = 0;
+                                firstTabLength = 0;
+
+                                if(removedTabs != null) {
+                                    $.each(removedTabs, function(index, value) {
+                                        if(index != removedTabs.length - 1 || selectedString.charAt(selectedString.length - 1) != '\n') {
+                                            removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
+                                        }
+                                    })
+
+                                    if(textareaString.substring(replaceStartPosition, startPosition).match(replacedRegExp) != null) {
+                                        firstTabLength = removedTabs[0].match(/[ ]+/)[0].length;
+                                    }
+                                }
+
+                                replaceString(replaceStartPosition, replaceEndPosition, targetString.replace(replacedRegExp, "$1"));
+
+                                textarea.selectionStart = startPosition - firstTabLength;
+                                if(textarea.selectionStart < replaceStartPosition + 1)
+                                    textarea.selectionStart = replaceStartPosition + 1
+                                textarea.selectionEnd   = endPosition   - removedTabCharacterLength;
+
                             } else {
-                                replacedRegExp = /\n(?!\n)/g
-                                replacingString = "\n"+tabCharacter
+                                replaceStartPosition = textareaString.lastIndexOf('\n', startPosition - 1);
+                                replaceEndPosition   = textareaString.indexOf('\n', endPosition);
+                                if(replaceEndPosition == -1)
+                                    replaceEndPosition = textareaString.length - 1
+                                targetString = textareaString.substring(replaceStartPosition, replaceEndPosition)
+
+                                replacedRegExp = /(^|\n)(?!\n)/g
+
+                                replaceString(replaceStartPosition, replaceEndPosition, targetString.replace(replacedRegExp, "$1"+tabCharacter));
+
+                                textarea.selectionStart = startPosition + tabCharacter.length;
+                                textarea.selectionEnd   = endPosition   + (tabCharacter.length * (selectedString.match(replacedRegExp).length));
                             }
-
-                            replaceStartPosition = textareaString.lastIndexOf('\n', startPosition - 1);
-                            targetString = textareaString.substring(replaceStartPosition, endPosition)
-
-                            textarea.value = textareaString.substring(0, replaceStartPosition)
-                                             + targetString.replace(replacedRegExp, replacingString)
-                                             + textareaString.substring(endPosition, textareaString.length);
-
-                            setSelectionPosition(targetString);
                         }
                     }
                 },
