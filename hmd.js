@@ -1403,10 +1403,14 @@ window.hmd = (function() {
                                 removedTabs = replacedString.match(replacedRegExp)
                                 removedTabCharacterLength = 0;
                                 firstTabLength = 0;
+
                                 if(removedTabs != null) {
+                                    lastMatchOfSelectedString = selectedString.match('\n[ ]{0,3}$')
                                     $.each(removedTabs, function(index, value) {
-                                        if(index != removedTabs.length - 1 || selectedString.charAt(selectedString.length - 1) != '\n') {
+                                        if(index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
                                             removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
+                                        } else {
+                                            removedTabCharacterLength += lastMatchOfSelectedString.length - 1
                                         }
                                     })
 
