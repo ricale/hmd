@@ -1354,7 +1354,7 @@ window.hmd = (function() {
 
                     // tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    ',
                     tabCharacter = '    ', removedTabCharacterLength, removedTabs, firstTabLength,
-                    startPosition, endPosition, replaceStartPosition, replaceEndPosition,
+                    startPosition, endPosition, replaceStartPosition, replaceEndPosition, lastMatchOfSelectedString,
                     textareaString, selectedString, targetString, replacedString, replacedRegExp = null;
 
 
@@ -1410,7 +1410,7 @@ window.hmd = (function() {
                                         if(index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
                                             removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
                                         } else {
-                                            removedTabCharacterLength += lastMatchOfSelectedString.length - 1
+                                            removedTabCharacterLength += lastMatchOfSelectedString[0].length - 1
                                         }
                                     })
 
