@@ -9,7 +9,7 @@ if (!Array.prototype.last) {
     Array.prototype.last = function(){
         return this[this.length - 1];
     };
-};
+}
 
 // # how to use
 // - hmd.run(sourceTextareaSelector, targetElementSelector)
@@ -19,7 +19,7 @@ if (!Array.prototype.last) {
 
 window.hmd = (function() {
 
-    var self, listLevel, listLevelInBlockquote,
+    var listLevel, listLevelInBlockquote,
         escapeRule, inlineRule, AnalyzedSentence,
         analyzedSentences,
         blockElementStack,
@@ -83,7 +83,9 @@ window.hmd = (function() {
             idx;
 
         for(idx in replacee) {
-            replacer[replacee[idx]] = ';;ESCAPE' + idx + ';;';
+            if (replacee.hasOwnProperty(idx)) {
+                replacer[replacee[idx]] = ';;ESCAPE' + idx + ';;';
+            }
         }
 
         return (function() {
@@ -91,9 +93,9 @@ window.hmd = (function() {
                 decode: function(string) {
                     string = string.replace(regexp, function(match, p1) {
                         return replacer[p1];
-                    })
+                    });
 
-                    return string
+                    return string;
                 },
 
                 escape: function(string) {
@@ -101,10 +103,10 @@ window.hmd = (function() {
                         return result[p1];
                     });
 
-                    return string
+                    return string;
                 }
-            }
-        })()
+            };
+        })();
     })();
 
     inlineRule = (function() {
@@ -112,13 +114,13 @@ window.hmd = (function() {
             NEED_REPLACER = 1,
             REFERENCED = 2,
 
-            replacees = Array(),
+            replacees = [],
             replacerRegexp = /;;REPLACER([0-9]+);;/g,
             reference = {},
             rules,
 
         getReference = function(url, title) {
-            return { url: url, title: title }
+            return { url: url, title: title };
         },
 
         getRule = function(regexp, type, result, notReplaced) {
@@ -127,11 +129,19 @@ window.hmd = (function() {
                 type:   type,
                 result: result, // or replacee
                 notReplaced: notReplaced || null,
-            }
+            };
         },
 
         replacer = function() {
-            return ';;REPLACER' + (replacees.length - 1) + ';;'
+            return ';;REPLACER' + (replacees.length - 1) + ';;';
+        },
+
+        getTitle = function(title) {
+            if(title === undefined) {
+                return "";
+            } else {
+                return ' title="'+title+'"';
+            }
         };
 
 
@@ -142,18 +152,18 @@ window.hmd = (function() {
         rules = [
             getRule(/!\[([^\]]+)\][\s]*\[([^\]]*)\]/g,
                     REFERENCED,
-                    function(url,alt,title) { return '<img src="'+url+'" alt="'+alt+'"'+(title!=undefined ? ' title="'+title+'"' : '')+'>' }),
+                    function(url,alt,title) { return '<img src="'+url+'" alt="'+alt+'"'+getTitle(title)+'>'; }),
 
             getRule(/\[([^\]]+)\][\s]*\[([^\]]*)\]/g,
                     REFERENCED,
-                    function(url,alt,title) { return '<a href="'+url+'"'+(title!=undefined ? ' title="'+title+'"' : '')+'>' },
-                    function(text) { return text + '</a>' }),
+                    function(url,alt,title) { return '<a href="'+url+'" alt="'+alt+'"'+getTitle(title)+'>'; },
+                    function(text) { return text + '</a>'; }),
 
-            getRule(/``[\s]*(.+?)[\s]*``/g,                          NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>' }),
-            getRule(/`([^`]+)`/g,                                    NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>' }),
-            getRule(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, NEED_REPLACER, function(p1,p2,p3) { return '<img src="$2" alt="$1" title="$3">' }),
-            getRule(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,  NEED_REPLACER, function(p1,p2,p3) { return '<a href="'+p2+'"'+(p3!=undefined ? ' title="'+p3+'"' : '')+'>' }, function(p1) { return p1+'</a>' }),
-            getRule(/<(http[s]?:\/\/[^<]+)>/g,                       NEED_REPLACER, function(p1) { return '<a href="'+p1+'">'+p1+'</a>'}),
+            getRule(/``[\s]*(.+?)[\s]*``/g,                          NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>'; }),
+            getRule(/`([^`]+)`/g,                                    NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>'; }),
+            getRule(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, NEED_REPLACER, function(p1,p2,p3) { return '<img src="'+p2+'"'+getTitle(p3)+'>'; }),
+            getRule(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,  NEED_REPLACER, function(p1,p2,p3) { return '<a href="'+p2+'"'+getTitle(p3)+'>'; }, function(p1) { return p1+'</a>'; }),
+            getRule(/<(http[s]?:\/\/[^<]+)>/g,                       NEED_REPLACER, function(p1) { return '<a href="'+p1+'">'+p1+'</a>'; }),
 
             getRule(/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g, NORMAL, '<strong>$1</strong>'),
             getRule(/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g,          NORMAL, '<strong>$1</strong>'),
@@ -166,7 +176,7 @@ window.hmd = (function() {
         return (function() {
             return {
                 init: function() {
-                    replacees = Array();
+                    replacees = [];
                     reference = {};
                 },
 
@@ -174,7 +184,9 @@ window.hmd = (function() {
                     var i;
 
                     for(i in ruleArray) {
-                        rules[rules.length] = getRule(ruleArray[i][0], NORMAL, ruleArray[i][1]);
+                        if(ruleArray.hasOwnProperty(i)) {
+                            rules[rules.length] = getRule(ruleArray[i][0], NORMAL, ruleArray[i][1]);
+                        }
                     }
                 },
 
@@ -183,32 +195,38 @@ window.hmd = (function() {
                 },
 
                 decode: function(string) {
-                    var idx, rule, index, line, ref;
+                    var needReplacerCallback = function(match, p1, p2, p3) {
+                        replacees[replacees.length] = rule.result(p1, p2, p3);
+                        return replacer() + (rule.notReplaced !== null ? rule.notReplaced(p1) : '');
+                    },
+
+                    referencedCallback = function(match, p1, p2) {
+                        ref = reference[p2 || p1];
+                        if(ref === undefined) return match;
+
+                        replacees[replacees.length] = rule.result(ref.url, p1, ref.title);
+                        return replacer() + (rule.notReplaced !== null ? rule.notReplaced(p1) : '');
+                    },
+
+                    idx, rule, ref;
 
                     for(idx in rules) {
-                        rule = rules[idx]
+                        if(rules.hasOwnProperty(idx)) {
+                            rule = rules[idx];
 
-                        switch(rule.type) {
-                        case NORMAL:
-                            string = string.replace(rule.regexp, rule.result);
-                            break;
+                            switch(rule.type) {
+                            case NORMAL:
+                                string = string.replace(rule.regexp, rule.result);
+                                break;
 
-                        case NEED_REPLACER:
-                            string = string.replace(rule.regexp, function(match, p1, p2, p3) {
-                                replacees[replacees.length] = rule.result(p1, p2, p3);
-                                return replacer() + (rule.notReplaced != null ? rule.notReplaced(p1) : '');
-                            })
-                            break;
+                            case NEED_REPLACER:
+                                string = string.replace(rule.regexp, needReplacerCallback);
+                                break;
 
-                        case REFERENCED:
-                            string = string.replace(rule.regexp, function(match, p1, p2) {
-                                ref = reference[p2 || p1];
-                                if(ref == undefined) return match
-
-                                replacees[replacees.length] = rule.result(ref['url'], p1, ref['title'])
-                                return replacer() + (rule.notReplaced != null ? rule.notReplaced(p1) : '');
-                            })
-                            break;
+                            case REFERENCED:
+                                string = string.replace(rule.regexp, referencedCallback);
+                                break;
+                            }
                         }
                     }
 
@@ -217,47 +235,47 @@ window.hmd = (function() {
 
                 escape: function(string) {
                     string = string.replace(replacerRegexp, function(match, p1) {
-                        return replacees[p1]
-                    })
+                        return replacees[p1];
+                    });
 
-                    replacees = Array();
+                    replacees = [];
 
                     return string;
                 }
-            }
+            };
         })();
     })();
 
     analyzedSentences = (function() {
-        var sentences = Array(),
+        var sentences = [],
             currentIndex = null;
 
         return (function() {
             return {
                 init: function() {
-                    sentences = Array();
+                    sentences = [];
                     currentIndex = null;
                 },
 
                 push: function(analyzedSentence) {
-                    analyzedSentence.index = sentences.length
+                    analyzedSentence.index = sentences.length;
                     sentences.push(analyzedSentence);
                 },
 
                 setCurrentIndex: function(index) {
                     if(index < 0) {
-                        currentIndex = null
+                        currentIndex = null;
                     } else if(index >= sentences.length) {
                         currentIndex = null;
                     } else {
-                        currentIndex = index
+                        currentIndex = index;
                     }
 
-                    return currentIndex
+                    return currentIndex;
                 },
 
                 goNext: function() {
-                    return this.setCurrentIndex(currentIndex != null ? currentIndex + 1 : 0);
+                    return this.setCurrentIndex(currentIndex !== null ? currentIndex + 1 : 0);
                 },
 
                 current: function() {
@@ -265,10 +283,10 @@ window.hmd = (function() {
                 },
 
                 last: function(params) {
-                    if(params == undefined) {
+                    if(params === undefined) {
                         return sentences.last();
                     } else {
-                        sentences[sentences.length - 1].tag = params.tag
+                        sentences[sentences.length - 1].tag = params.tag;
                     }
                 },
 
@@ -281,18 +299,18 @@ window.hmd = (function() {
                 },
 
                 previousLine: function(index) {
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
                     return index > 1 ? sentences[index - 1] : null;
                 },
 
                 nextLine: function(index) {
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
                     return index < sentences.length - 1 ? sentences[index + 1] : null;
                 },
 
                 previousBlank: function(index) {
                     var i;
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
 
                     for(i = index - 1; i >= 0; i--) {
                         if(sentences[i].isBlank()) {
@@ -305,7 +323,7 @@ window.hmd = (function() {
 
                 nextBlank: function(index) {
                     var i;
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
 
                     for(i = index + 1; i < sentences.length; i++) {
                         if(sentences[i].isBlank()) {
@@ -318,7 +336,7 @@ window.hmd = (function() {
 
                 previousLineExceptBlank: function(index) {
                     var i;
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
 
                     for(i = index - 1; i >= 0; i--) {
                         if(sentences[i].isNotBlank()) {
@@ -331,7 +349,7 @@ window.hmd = (function() {
 
                 nextLineExceptBlank: function(index) {
                     var i;
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
 
                     for(i = index + 1; i < sentences.length; i++) {
                         if(sentences[i].isNotBlank()) {
@@ -344,7 +362,7 @@ window.hmd = (function() {
 
                 previousChunk: function(index) {
                     var i, endOfChunk, blank;
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
 
                     for(i = index - 1; i >= 0; i--) {
                         if(sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
@@ -352,12 +370,12 @@ window.hmd = (function() {
 
                         } else if(sentences[i].isBlank()) {
                             endOfChunk = this.previousLineExceptBlank(i);
-                            if(endOfChunk == null) {
+                            if(endOfChunk === null) {
                                 return null;
                             }
 
-                            blank = this.previousBlank(endOfChunk.index)
-                            return blank == null ? endOfChunk : sentences[blank.index + 1]
+                            blank = this.previousBlank(endOfChunk.index);
+                            return blank === null ? endOfChunk : sentences[blank.index + 1];
                         }
                     }
 
@@ -366,7 +384,7 @@ window.hmd = (function() {
 
                 nextChunk: function(index) {
                     var i;
-                    index = index == undefined ? currentIndex : index
+                    index = index === undefined ? currentIndex : index;
 
                     for(i = index + 1; i < sentences.length; i++) {
                         if(sentences[i].isHeading() || sentences[i].isHorizontalLine() || (sentences[i].isList() && sentences[i].listLevel() == this.current().listLevel())) {
@@ -381,8 +399,8 @@ window.hmd = (function() {
                 },
 
                 previousList: function(index) {
-                    var i, passBlankAlready = false
-                    index = index == undefined ? currentIndex : index
+                    var i, passBlankAlready = false;
+                    index = index === undefined ? currentIndex : index;
 
                     for(i = index - 1; i >= 0; i--) {
                         if(sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
@@ -393,39 +411,39 @@ window.hmd = (function() {
                                 return null;
 
                             } else {
-                                passBlankAlready = true
+                                passBlankAlready = true;
                             }
 
-                        } else if(sentences[i].isNotBlank() && sentences.level == 0) {
-                            return null
+                        } else if(sentences[i].isNotBlank() && sentences.level === 0) {
+                            return null;
 
                         } else if(sentences[i].isList()) {
-                            return sentences[i]
+                            return sentences[i];
                         }
                     }
 
                     return null;
                 }
-            }
+            };
         })();
     })();
 
     blockElementStack = (function() {
-        var elements = Array(),
+        var elements = [],
             currentQuoteLevel = 0,
             currentListLevel = 0;
 
         return (function() {
             return {
                 init: function() {
-                    elements = Array();
+                    elements = [];
                     currentQuoteLevel = 0;
                     currentListLevel = 0;
                 },
 
                 push: function(tag, level) {
                     var result;
-                    level = level == undefined ? 0 : level
+                    level = level === undefined ? 0 : level;
 
                     result = (elements.length > 0 && (elements.last().tag == P || elements.last().tag == CODEBLOCK)) ? this.pop() : "";
 
@@ -433,31 +451,31 @@ window.hmd = (function() {
                         currentQuoteLevel += 1;
 
                     } else if(tag == UL || tag == OL) {
-                        currentListLevel = level
-                        if(currentListLevel != 0) {
-                            currentListLevel += currentQuoteLevel * 100
+                        currentListLevel = level;
+                        if(currentListLevel !== 0) {
+                            currentListLevel += currentQuoteLevel * 100;
                         }
                     }
 
                     elements.push({
                         'tag':   tag,
                         'level': level
-                    })
+                    });
 
                     switch(tag)
                     {
-                    case BLOCKQUOTE: return result + "<blockquote>"
-                    case UL:         return result + "<ul><li>"
-                    case OL:         return result + "<ol><li>"
-                    case P:          return result + "<p>"
-                    case H1:         return result + "<h1>"
-                    case H2:         return result + "<h2>"
-                    case H3:         return result + "<h3>"
-                    case H4:         return result + "<h4>"
-                    case H5:         return result + "<h5>"
-                    case H6:         return result + "<h6>"
-                    case CODEBLOCK:  return result + "<pre><code>"
-                    case HR:         return result + "<hr/>"
+                    case BLOCKQUOTE: return result + "<blockquote>";
+                    case UL:         return result + "<ul><li>";
+                    case OL:         return result + "<ol><li>";
+                    case P:          return result + "<p>";
+                    case H1:         return result + "<h1>";
+                    case H2:         return result + "<h2>";
+                    case H3:         return result + "<h3>";
+                    case H4:         return result + "<h4>";
+                    case H5:         return result + "<h5>";
+                    case H6:         return result + "<h6>";
+                    case CODEBLOCK:  return result + "<pre><code>";
+                    case HR:         return result + "<hr/>";
                     }
                 },
 
@@ -480,7 +498,7 @@ window.hmd = (function() {
                             currentQuoteLevel -= 1;
 
                         } else if(last.tag == UL || last.tag == OL) {
-                            currentListLevel = 0
+                            currentListLevel = 0;
                             for(i = elements.length - 2; i >= 0; i--) {
                                 if(elements[i].tag != BLOCKQUOTE) {
                                     currentListLevel = elements[i].level;
@@ -488,8 +506,8 @@ window.hmd = (function() {
                                 }
                             }
 
-                            if(currentListLevel != 0) {
-                                currentListLevel += currentQuoteLevel * 100
+                            if(currentListLevel !== 0) {
+                                currentListLevel += currentQuoteLevel * 100;
                             }
 
                         }
@@ -499,18 +517,18 @@ window.hmd = (function() {
 
                     switch(element.tag)
                     {
-                    case BLOCKQUOTE: return "</blockquote>"
-                    case UL:         return "</li></ul>"
-                    case OL:         return "</li></ol>"
-                    case P:          return "</p>"
-                    case H1:         return "</h1>"
-                    case H2:         return "</h2>"
-                    case H3:         return "</h3>"
-                    case H4:         return "</h4>"
-                    case H5:         return "</h5>"
-                    case H6:         return "</h6>"
-                    case CODEBLOCK:  return "</code></pre>"
-                    case HR:         return ""
+                    case BLOCKQUOTE: return "</blockquote>";
+                    case UL:         return "</li></ul>";
+                    case OL:         return "</li></ol>";
+                    case P:          return "</p>";
+                    case H1:         return "</h1>";
+                    case H2:         return "</h2>";
+                    case H3:         return "</h3>";
+                    case H4:         return "</h4>";
+                    case H5:         return "</h5>";
+                    case H6:         return "</h6>";
+                    case CODEBLOCK:  return "</code></pre>";
+                    case HR:         return "";
                     }
                 },
 
@@ -528,14 +546,14 @@ window.hmd = (function() {
                     var result = "";
 
                     while(this.isNotEmpty() && this.lastIsNotBlockquote() && listLv < this.listLevel()) {
-                        result += this.pop()
+                        result += this.pop();
                     }
 
                     return result;
                 },
 
                 popToBlockquote: function() {
-                    var result = ""
+                    var result = "";
 
                     while(this.isNotEmpty() && this.lastIsNotBlockquote()) {
                         result += this.pop();
@@ -557,51 +575,51 @@ window.hmd = (function() {
                 },
 
                 isEmpty: function() {
-                    return elements.length == 0
+                    return elements.length === 0;
                 },
 
                 isNotEmpty: function() {
-                    return elements.length != 0
+                    return elements.length !== 0;
                 },
 
                 lastIsBlockquote: function() {
                     var last = elements.last();
-                    return last && last.tag == BLOCKQUOTE
+                    return last && last.tag == BLOCKQUOTE;
                 },
 
                 lastIsNotBlockquote: function() {
                     var last = elements.last();
-                    return !last || last.tag != BLOCKQUOTE
+                    return !last || last.tag != BLOCKQUOTE;
                 },
 
                 lastIsParagraph: function() {
                     var last = elements.last();
-                    return last && last.tag == P
+                    return last && last.tag == P;
                 },
 
                 lastIsNotParagraph: function() {
                     var last = elements.last();
-                    return !last || last.tag != P
+                    return !last || last.tag != P;
                 },
 
                 lastIsList: function() {
                     var last = elements.last();
-                    return last && (last.tag == UL || last.tag == OL)
+                    return last && (last.tag == UL || last.tag == OL);
                 },
 
                 lastIsNotList: function() {
                     var last = elements.last();
-                    return !last || (last.tag != UL && last.tag != OL)
+                    return !last || (last.tag != UL && last.tag != OL);
                 },
 
                 lastIsCodeblock: function() {
                     var last = elements.last();
-                    return last && last.tag == CODEBLOCK
+                    return last && last.tag == CODEBLOCK;
                 },
 
                 lastIsNotCodeblock: function() {
                     var last = elements.last();
-                    return !last || last.tag != CODEBLOCK
+                    return !last || last.tag != CODEBLOCK;
                 },
 
                 size: function() {
@@ -611,8 +629,8 @@ window.hmd = (function() {
                 stack: function() {
                     return elements;
                 }
-            }
-        })()
+            };
+        })();
     })();
 
     // # private inner classes
@@ -632,19 +650,19 @@ window.hmd = (function() {
 
     AnalyzedSentence.prototype = {
         listLevel: function() {
-            return this.level == 0 ? 0 : this.level + this.quote * 100
+            return this.level === 0 ? 0 : this.level + this.quote * 100;
         },
 
         isParagraph: function() {
-            return this.tag == P
+            return this.tag == P;
         },
 
         isUnorderedList: function() {
-            return this.tag == UL
+            return this.tag == UL;
         },
 
         isOrderedList: function() {
-            return this.tag == OL
+            return this.tag == OL;
         },
 
         isList: function() {
@@ -652,36 +670,36 @@ window.hmd = (function() {
         },
 
         isBlank: function() {
-            return this.tag == BLANK
+            return this.tag == BLANK;
         },
 
         isCodeblock: function() {
-            return this.tag == CODEBLOCK
+            return this.tag == CODEBLOCK;
         },
 
         isHeading: function() {
-            return (this.tag == H1
-                    || this.tag == H2
-                    || this.tag == H3
-                    || this.tag == H4
-                    || this.tag == H5
-                    || this.tag == H6)
+            return (this.tag == H1 ||
+                    this.tag == H2 ||
+                    this.tag == H3 ||
+                    this.tag == H4 ||
+                    this.tag == H5 ||
+                    this.tag == H6);
         },
 
         isHorizontalLine: function() {
-            return this.tag == HR
+            return this.tag == HR;
         },
 
         isNotParagraph: function() {
-            return this.tag != P
+            return this.tag != P;
         },
 
         isNotUnorderedList: function() {
-            return this.tag != UL
+            return this.tag != UL;
         },
 
         isNotOrderedList: function() {
-            return this.tag != OL
+            return this.tag != OL;
         },
 
         isNotList: function() {
@@ -689,55 +707,55 @@ window.hmd = (function() {
         },
 
         isNotBlank: function() {
-            return this.tag != BLANK
+            return this.tag != BLANK;
         },
 
         isNotCodeblock: function() {
-            return this.tag != CODEBLOCK
+            return this.tag != CODEBLOCK;
         },
 
         isNotHeading: function() {
-            return (this.tag != H1
-                    && this.tag != H2
-                    && this.tag != H3
-                    && this.tag != H4
-                    && this.tag != H5
-                    && this.tag != H6)
+            return (this.tag != H1 &&
+                    this.tag != H2 &&
+                    this.tag != H3 &&
+                    this.tag != H4 &&
+                    this.tag != H5 &&
+                    this.tag != H6);
         },
 
         isNotHorizontalLine: function() {
-            return this.tag != HR
+            return this.tag != HR;
         }
-    }
+    };
 
     // # private methods
     ////////////////////
 
     translate = function(sourceString, callback) {
-        var array = sourceString.split(/\n/), i, r, self, finalResult,
+        var array = sourceString.split(/\n/), i, r, self,
 
         initAll = function() {
             inlineRule.init();
 
-            listLevel = Array();
-            listLevelInBlockquote = Array();
+            listLevel = [];
+            listLevelInBlockquote = [];
 
             analyzedSentences.init();
             blockElementStack.init();
         },
 
         isEndOfList = function(result) {
-            return result.isNotBlank() && result.level == 0
+            return result.isNotBlank() && result.level === 0;
         },
 
         cleanListInformation = function() {
             if(listLevel.length > 0) {
-                listLevel = Array();
-                listLevelInBlockquote = Array();
+                listLevel = [];
+                listLevelInBlockquote = [];
             }
 
             if(listLevelInBlockquote.length > 0) {
-                listLevelInBlockquote = Array();
+                listLevelInBlockquote = [];
             }
         };
 
@@ -746,11 +764,11 @@ window.hmd = (function() {
         initAll();
 
         for(i = 0; i < array.length; i++) {
-            if((r = matching(array[i])) != null) {
+            if((r = matching(array[i])) !== null) {
                 analyzedSentences.push(r);
 
                 if(isEndOfList(r)) {
-                    cleanListInformation()
+                    cleanListInformation();
                 }
             }
         }
@@ -763,19 +781,19 @@ window.hmd = (function() {
         var sentence = matchBlockquotes(string), line = null, result,
 
         isBlank = function() {
-            return sentence.content.match(regExpBlank) != null;
+            return sentence.content.match(regExpBlank) !== null;
         },
 
         isUnderlineForH1 = function() {
-            return sentence.content.match(regExpH1Underlined) != null && analyzedSentences.size() != 0 && analyzedSentences.last().isParagraph()
+            return sentence.content.match(regExpH1Underlined) !== null && analyzedSentences.size() !== 0 && analyzedSentences.last().isParagraph();
         },
 
         isUnderlineForH2 = function() {
-            return sentence.content.match(regExpH2Underlined) != null && analyzedSentences.size() != 0 && analyzedSentences.last().isParagraph()
+            return sentence.content.match(regExpH2Underlined) !== null && analyzedSentences.size() !== 0 && analyzedSentences.last().isParagraph();
         },
 
         isHR = function() {
-            return sentence.content.match(regExpHR) != null
+            return sentence.content.match(regExpHR) !== null;
         },
 
         matchWithListForm = function(tag, regExpTag) {
@@ -791,11 +809,11 @@ window.hmd = (function() {
                         levels = isInBq ? listLevelInBlockquote : listLevel,
                         now, exist, i,
 
-                    noListBefore                         = function() { return levels.length == 0; },
+                    noListBefore                         = function() { return levels.length === 0; },
                     existListWithOnlyOneLevel            = function() { return levels.length == 1; },
                     indentIsSameAsFirstLevelOfList       = function() { return space == levels[0]; },
                     isParagraphContinuedFromPrevListItem = function() { return space >= (now + 1) * 4; },
-                    isNextLevelOfPrevListItem            = function() { return space > levels[now - 1] && space > (now - 1) * 4 },
+                    isNextLevelOfPrevListItem            = function() { return space > levels[now - 1] && space > (now - 1) * 4; },
                     isSameLevelOfPrevListItem            = function() { return space >= levels[now - 1]; };
 
                     if(noListBefore()) {
@@ -867,10 +885,10 @@ window.hmd = (function() {
                     return result;
                 }, // getListLevel
 
-                r = getListLevel(line[1], sentence.quote != 0);
+                r = getListLevel(line[1], sentence.quote !== 0);
 
                 if(r.isNotCodeblock()) {
-                    sentence.tag   = r.tag != null ? r.tag : tag;
+                    sentence.tag   = r.tag !== null ? r.tag : tag;
                     sentence.level = r.level;
                     sentence.content = line[2];
                     return sentence;
@@ -894,25 +912,25 @@ window.hmd = (function() {
         },
 
         matchWithULForm = function() {
-            return matchWithListForm(UL, regExpUL, sentence)
+            return matchWithListForm(UL, regExpUL, sentence);
             
         },
 
         matchWithOLForm = function() {
-            return matchWithListForm(OL, regExpOL, sentence)
+            return matchWithListForm(OL, regExpOL, sentence);
         },
 
         matchContinuedList = function(string, last) {
             var previousLineIsList = function() { // 바로 윗 줄이 리스트인가
-                return prev != null && prev.level != 0
+                return prev !== null && prev.level !== 0;
             },
 
             isCodeblock = function() {
-                return line != null && prev.isCodeblock() && getIndentLevel(line[1]) == 8 && (prev.level - 1) * 4 <= getIndentLevel(line[2])
+                return line !== null && prev.isCodeblock() && getIndentLevel(line[1]) == 8 && (prev.level - 1) * 4 <= getIndentLevel(line[2]);
             },
 
             listIsContinuedNow = function() { // 공백이 아닌 문장 중 가장 최근의 문장이 리스트인가
-                return above != null && above.level != 0
+                return above !== null && above.level !== 0;
             },
 
             result = new AnalyzedSentence(),
@@ -948,20 +966,20 @@ window.hmd = (function() {
                 //   c. 목록 요소 내부의 문단 요소이다.
             } else if(listIsContinuedNow()) {
 
-                if(line == null) {
+                if(line === null) {
                     result = matchBlockquotes(string);
                     if(result.quote == above.quote) {
                         line = result.content.match(regExpContinuedList);
 
-                        if(line == null) {
+                        if(line === null) {
                             return null;
                         }
                     } else {
-                        above = analyzedSentences.previousList(analyzedSentences.size())
+                        above = analyzedSentences.previousList(analyzedSentences.size());
                         if(above && result.quote == above.quote) {
                             line = result.content.match(regExpContinuedList);
 
-                            if(line == null) {
+                            if(line === null) {
                                 return null;
                             }
                         } else {
@@ -985,7 +1003,7 @@ window.hmd = (function() {
                 // b 혹은 c
                 result = matching(line[3]);
                 indent = getIndentLevel(line[1] + line[2]);
-                indent = indent / 4 - indent / 4 % 1 + (indent % 4 != 0);
+                indent = indent / 4 - indent / 4 % 1 + (indent % 4 !== 0);
 
                 result.level += indent > above.level ? above.level : indent;
                 result.quote = above.quote;
@@ -995,14 +1013,6 @@ window.hmd = (function() {
 
             // 위의 어떠한 사항에도 해당하지 않는다면 이 줄은 목록 요소 내부의 블록 요소가 아니다.
             return null;
-        },
-
-        // CODEBLOCK의 정규 표현식과 일치한 결과(line)를
-        // 사용하기 적절한 결과 값으로 변환해 반환한다.
-        getCodeblockResult = function(line) {
-            sentence.tag     = CODEBLOCK;
-            sentence.content = line[2];
-            return sentence;
         },
 
         matchHeading = function() {
@@ -1030,7 +1040,7 @@ window.hmd = (function() {
         matchReference = function() {
             var line;
 
-            if((line = sentence.content.match(regExpReferencedId[0])) == null) {
+            if((line = sentence.content.match(regExpReferencedId[0])) === null) {
                 line = sentence.content.match(regExpReferencedId[1]);
 
                 return line;
@@ -1072,7 +1082,7 @@ window.hmd = (function() {
         },
 
         setReference = function() {
-            inlineRule.addReference(result[1], result[2], result[3])
+            inlineRule.addReference(result[1], result[2], result[3]);
             return null;
         },
 
@@ -1117,7 +1127,7 @@ window.hmd = (function() {
         while(true) {
             line = result.content.match(regExpBlockquote);
 
-            if(line == null) return result;
+            if(line === null) return result;
 
             result.quote += line[1].length;
             result.content = line[2];
@@ -1130,9 +1140,9 @@ window.hmd = (function() {
         var indent = blank.match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g),
             space = 0, i;
 
-        if(indent != null) {
+        if(indent !== null) {
             for(i = 0; i < indent.length; i++) {
-                if(indent[i].match(/^[ ]{1,3}$/) != null) {
+                if(indent[i].match(/^[ ]{1,3}$/) !== null) {
                     space += indent[i].length;
                 } else {
                     space += 4;
@@ -1155,7 +1165,7 @@ window.hmd = (function() {
             }
 
             if(blockElementStack.lastIsCodeblock()) {
-                if((current.isNotCodeblock() && current.isNotBlank()) || (current.isBlank() && (below == null || below.isNotCodeblock()))) {
+                if((current.isNotCodeblock() && current.isNotBlank()) || (current.isBlank() && (below === null || below.isNotCodeblock()))) {
                     string += blockElementStack.pop();
                 }
             }
@@ -1165,7 +1175,7 @@ window.hmd = (function() {
             var prev = analyzedSentences.previousLine(),
                 closeList = function() {
                     if(current.listLevel() < blockElementStack.listLevel()) {
-                        string += blockElementStack.popToListLevel(current.listLevel())
+                        string += blockElementStack.popToListLevel(current.listLevel());
 
                     } else if(current.listLevel() == blockElementStack.listLevel()) {
                         if(current.isList()) {
@@ -1181,16 +1191,16 @@ window.hmd = (function() {
 
             if(current.quote < blockElementStack.quoteLevel()) {
                 if(prev.isBlank()) {
-                    string += blockElementStack.popToQuoteLevel(current.quote)
+                    string += blockElementStack.popToQuoteLevel(current.quote);
                 }
                 closeList();
 
             } else if(current.quote > blockElementStack.quoteLevel()) {
                 if(prev && prev.isBlank()) {
-                    string += blockElementStack.popToBlockquote()
+                    string += blockElementStack.popToBlockquote();
                 }
 
-                string += blockElementStack.pushToQuoteLevel(current.quote)
+                string += blockElementStack.pushToQuoteLevel(current.quote);
 
             } else {
                 closeList();
@@ -1210,7 +1220,7 @@ window.hmd = (function() {
                 }
             }
 
-            if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && current.level != 0) {
+            if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && current.level !== 0) {
                 prev = analyzedSentences.previousLine();
 
                 if(current.isParagraph() && prev.isBlank()) {
@@ -1236,13 +1246,13 @@ window.hmd = (function() {
                 string += blockElementStack.push(current.tag);
 
             } else if(current.isParagraph()) {
-                if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && blockElementStack.listLevel() == 0) {
+                if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && blockElementStack.listLevel() === 0) {
                     string += blockElementStack.push(current.tag);
                 }
 
             } else if(current.isCodeblock()) {
                 if(blockElementStack.lastIsNotCodeblock()) {
-                    string += blockElementStack.push(current.tag)
+                    string += blockElementStack.push(current.tag);
                 }
 
             }
@@ -1282,7 +1292,7 @@ window.hmd = (function() {
         string = "", current;
 
         // 줄 단위로 확인한다.
-        while(analyzedSentences.goNext() != null) {
+        while(analyzedSentences.goNext() !== null) {
             current = analyzedSentences.current();
 
             closeBlockElementsIfNeeded();
@@ -1313,7 +1323,7 @@ window.hmd = (function() {
             // - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 contentarea 요소의 셀렉터
             // - targetElementSelector : HTML 형식의 번역 결과가 출력될 HTML 요소의 셀렉터
             run: function(sourceTextareaSelector, targetElementSelector, options) {
-                var scrollTargetElement = function(event) {
+                var scrollTargetElement = function() {
                     var $target = $(targetElementSelector),
                         $this   = $(sourceTextareaSelector),
                         targetElement = $target[0],
@@ -1345,7 +1355,7 @@ window.hmd = (function() {
                     setTextareaSelection = function(selectionStartPosition, selectionEndPosition) {
                         textarea.selectionStart = selectionStartPosition;
                         if(textarea.selectionStart < replaceStartPosition + 1)
-                            textarea.selectionStart = replaceStartPosition + 1
+                            textarea.selectionStart = replaceStartPosition + 1;
 
                         if(selectionEndPosition < textarea.selectionStart)
                             selectionEndPosition = textarea.selectionStart;
@@ -1355,7 +1365,8 @@ window.hmd = (function() {
                     // tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    ',
                     tabCharacter = '    ', removedTabCharacterLength, removedTabs, firstTabLength,
                     startPosition, endPosition, replaceStartPosition, replaceEndPosition, lastMatchOfSelectedString,
-                    textareaString, selectedString, targetString, replacedString, replacedRegExp = null;
+                    textareaString, selectedString, replacedString, replacedRegExp = null,
+                    selectedRange;
 
 
                     if(document.selection) {
@@ -1368,27 +1379,27 @@ window.hmd = (function() {
                         startPosition  = textarea.selectionStart;
                         endPosition    = textarea.selectionEnd;
 
-                        selectedString = textareaString.substring(startPosition, endPosition)
+                        selectedString = textareaString.substring(startPosition, endPosition);
 
-                        if(selectedString.match(/\n/) == null) {
+                        if(selectedString.match(/\n/) === null) {
                             if(shifted) {
                                 replaceStartPosition = getReplaceStartPosition();
                                 replaceEndPosition   = getReplaceEndPosition();
 
-                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition)
-                                replacedRegExp = /(^|\n)([ ]{1,4})/
+                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition);
+                                replacedRegExp = /(^|\n)([ ]{1,4})/;
 
-                                if(replacedString.match(replacedRegExp) == null) {
-                                    removedTabCharacterLength = 0
+                                if(replacedString.match(replacedRegExp) === null) {
+                                    removedTabCharacterLength = 0;
                                 } else {
-                                    removedTabCharacterLength = replacedString.match(replacedRegExp)[2].length
+                                    removedTabCharacterLength = replacedString.match(replacedRegExp)[2].length;
                                 }
 
-                                replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, '$1'))
-                                setTextareaSelection(startPosition - removedTabCharacterLength, startPosition - removedTabCharacterLength)
+                                replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, '$1'));
+                                setTextareaSelection(startPosition - removedTabCharacterLength, startPosition - removedTabCharacterLength);
 
                             } else {
-                                replaceString(startPosition, endPosition, tabCharacter)
+                                replaceString(startPosition, endPosition, tabCharacter);
                                 setTextareaSelection(startPosition + tabCharacter.length, startPosition + tabCharacter.length);
                             }
 
@@ -1397,40 +1408,40 @@ window.hmd = (function() {
                                 replaceStartPosition = getReplaceStartPosition();
                                 replaceEndPosition   = getReplaceEndPosition();
 
-                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition)
-                                replacedRegExp = /(^|\n)([ ]{1,4})/g
+                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition);
+                                replacedRegExp = /(^|\n)([ ]{1,4})/g;
 
-                                removedTabs = replacedString.match(replacedRegExp)
+                                removedTabs = replacedString.match(replacedRegExp);
                                 removedTabCharacterLength = 0;
                                 firstTabLength = 0;
 
-                                if(removedTabs != null) {
-                                    lastMatchOfSelectedString = selectedString.match('\n[ ]{0,3}$')
+                                if(removedTabs !== null) {
+                                    lastMatchOfSelectedString = selectedString.match('\n[ ]{0,3}$');
                                     $.each(removedTabs, function(index, value) {
                                         if(index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
                                             removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
                                         } else {
-                                            removedTabCharacterLength += lastMatchOfSelectedString[0].length - 1
+                                            removedTabCharacterLength += lastMatchOfSelectedString[0].length - 1;
                                         }
-                                    })
+                                    });
 
-                                    if(textareaString.substring(replaceStartPosition, startPosition).match(replacedRegExp) != null) {
+                                    if(textareaString.substring(replaceStartPosition, startPosition).match(replacedRegExp) !== null) {
                                         firstTabLength = removedTabs[0].match(/[ ]+/)[0].length;
                                     }
                                 }
 
                                 replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, "$1"));
-                                setTextareaSelection(startPosition - firstTabLength, endPosition - removedTabCharacterLength)
+                                setTextareaSelection(startPosition - firstTabLength, endPosition - removedTabCharacterLength);
 
                             } else {
                                 replaceStartPosition = getReplaceStartPosition();
                                 replaceEndPosition   = getReplaceEndPosition();
 
-                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition)
-                                replacedRegExp = /(^|\n)(?!\n)/g
+                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition);
+                                replacedRegExp = /(^|\n)(?!\n)/g;
 
                                 replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, "$1"+tabCharacter));
-                                setTextareaSelection(startPosition + tabCharacter.length, endPosition + (tabCharacter.length * (selectedString.match(replacedRegExp).length)));
+                                setTextareaSelection(startPosition + tabCharacter.length, endPosition + (tabCharacter.length * selectedString.match(replacedRegExp).length));
                             }
                         }
                     }
@@ -1442,22 +1453,19 @@ window.hmd = (function() {
                 timeout  = null,
                 firefoxKeyTriggerFlag = false;
 
-                options = options == undefined ? {} : options
-                options.UseTabKey         = options.UseTabKey == undefined         ? true    : options.UseTabKey
-                options.TabCharacter      = options.TabCharacter == undefined      ? 'space' : options.TabCharacter
-                options.AutoScrollPreview = options.AutoScrollPreview == undefined ? true    : options.AutoScrollPreview
+                options = options === undefined ? {} : options;
+                options.UseTabKey         = options.UseTabKey === undefined         ? true    : options.UseTabKey;
+                options.TabCharacter      = options.TabCharacter === undefined      ? 'space' : options.TabCharacter;
+                options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true    : options.AutoScrollPreview;
 
 
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
                 $sourceTextarea.keydown(function(event) {
-                    var $this = $(this),
-                        tabCharacter;
-
                     if(!firefoxKeyTriggerFlag) {
                         if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
-                            if (event.keyCode == 0) {
-                                if(interval == null) {
+                            if (event.keyCode === 0) {
+                                if(interval === null) {
                                     interval = setInterval(function() {
                                         $(sourceTextareaSelector).trigger('keydown');
                                         firefoxKeyTriggerFlag = true;
@@ -1465,7 +1473,7 @@ window.hmd = (function() {
                                 }
 
                             } else {
-                                if(interval != null) {
+                                if(interval !== null) {
                                     clearInterval(interval);
                                     interval = null;
                                 }
@@ -1492,15 +1500,15 @@ window.hmd = (function() {
                 }).trigger('keydown');
 
                 if(options.AutoScrollPreview) {
-                    $sourceTextarea.scroll(scrollTargetElement)
+                    $sourceTextarea.scroll(scrollTargetElement);
                 }
             },
 
             // 추가적인 인라인 요소 번역 함수를 설정한다.
             // 이는 기존의 인라인 요소 문법에 대한 확인이 모두 끝난 다음에 실행된다.
             addInlineRules: function(rulesArray) {
-                inlineRule.addRule(rulesArray)
+                inlineRule.addRule(rulesArray);
             }
-        }
+        };
     })();
 })();
