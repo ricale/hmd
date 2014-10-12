@@ -1,10 +1,3 @@
-"use strict";
-
-// # handmade markdown decoder (hmd)
-//  - written by ricale
-//  - version 0.2.6
-//  - ricale@ricalest.net
-
 if (!Array.prototype.last) {
     Array.prototype.last = function(){
         return this[this.length - 1];
@@ -12,12 +5,13 @@ if (!Array.prototype.last) {
 }
 
 // # how to use
-// - hmd.run(sourceTextareaSelector, targetElementSelector)
+// - hmd.run(sourceTextareaElement, targetElement, options)
 // - hmd.decode(string)
 //
-// 상세 정보는 git 저장소(https://bitbucket.org/ricale/hmd) 참고
+// - more information: https://github.com/ricale/hmd, http://weblog.ricalest.net/4
 
 window.hmd = (function() {
+    "use strict";
 
     var listLevel, listLevelInBlockquote,
         escapeRule, inlineRule, AnalyzedSentence,
@@ -731,7 +725,7 @@ window.hmd = (function() {
     // # private methods
     ////////////////////
 
-    translate = function(sourceString, callback) {
+    translate = function(sourceString) {
         var array = sourceString.split(/\n/), i, r, self,
 
         initAll = function() {
@@ -1320,14 +1314,11 @@ window.hmd = (function() {
                 return translate.call(this, string);
             },
 
-            // - sourceTextareaSelector : 마크다운 형식의 문자열이 있는 HTML의 contentarea 요소의 셀렉터
-            // - targetElementSelector : HTML 형식의 번역 결과가 출력될 HTML 요소의 셀렉터
-            run: function(sourceTextareaSelector, targetElementSelector, options) {
+            // - sourceTextareaElement : 마크다운 형식의 문자열이 있는 HTML의 textarea element
+            // - targetElement : HTML 형식의 번역 결과가 출력될 HTML element
+            run: function(sourceTextareaElement, targetElement, options) {
                 var scrollTargetElement = function() {
-                    var $target = $(targetElementSelector),
-                        $this   = $(sourceTextareaSelector),
-                        targetElement = $target[0],
-                        thisElement   = $this[0],
+                    var thisElement   = sourceTextareaElement,
                         targetScrollHeight = targetElement.scrollHeight,
                         targetClientHeight = targetElement.clientHeight,
                         thisScrollTop    = thisElement.scrollTop,
@@ -1335,7 +1326,8 @@ window.hmd = (function() {
                         thisClientHeight = thisElement.clientHeight,
                         scrollTop = (thisScrollTop / (thisScrollHeight - thisClientHeight)) * (targetScrollHeight - targetClientHeight);
 
-                    $target.scrollTop(scrollTop);
+                    targetElement.scrollTop = scrollTop;
+                    // $target.scrollTop(scrollTop);
                 },
 
                 insertTabCharacter = function(textarea, shifted) {
@@ -1366,7 +1358,8 @@ window.hmd = (function() {
                     tabCharacter = '    ', removedTabCharacterLength, removedTabs, firstTabLength,
                     startPosition, endPosition, replaceStartPosition, replaceEndPosition, lastMatchOfSelectedString,
                     textareaString, selectedString, replacedString, replacedRegExp = null,
-                    selectedRange;
+                    selectedRange,
+                    index, value;
 
 
                     if(document.selection) {
@@ -1417,13 +1410,15 @@ window.hmd = (function() {
 
                                 if(removedTabs !== null) {
                                     lastMatchOfSelectedString = selectedString.match('\n[ ]{0,3}$');
-                                    $.each(removedTabs, function(index, value) {
+
+                                    for(index = 0; index < removedTabs.length; index++) {
+                                        value = removedTabs[index];
                                         if(index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
                                             removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
                                         } else {
                                             removedTabCharacterLength += lastMatchOfSelectedString[0].length - 1;
                                         }
-                                    });
+                                    }
 
                                     if(textareaString.substring(replaceStartPosition, startPosition).match(replacedRegExp) !== null) {
                                         firstTabLength = removedTabs[0].match(/[ ]+/)[0].length;
@@ -1447,27 +1442,35 @@ window.hmd = (function() {
                     }
                 },
 
-                $sourceTextarea = $(sourceTextareaSelector),
-                self     = this,
-                interval = null,
-                timeout  = null,
-                firefoxKeyTriggerFlag = false;
+                triggerEvent = function(element, eventName) {
+                    var event; // The custom event that will be created
 
-                options = options === undefined ? {} : options;
-                options.UseTabKey         = options.UseTabKey === undefined         ? true    : options.UseTabKey;
-                options.TabCharacter      = options.TabCharacter === undefined      ? 'space' : options.TabCharacter;
-                options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true    : options.AutoScrollPreview;
+                    if (document.createEvent) {
+                        event = document.createEvent("HTMLEvents");
+                        event.initEvent(eventName, true, true);
+                    } else {
+                        event = document.createEventObject();
+                        event.eventType = eventName;
+                    }
 
+                    event.eventName = eventName;
+
+                    if (document.createEvent) {
+                        element.dispatchEvent(event);
+                    } else {
+                        element.fireEvent("on" + event.eventType, event);
+                    }
+                },
 
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
-                $sourceTextarea.keydown(function(event) {
+                forceKeydownEventForFirefox = function(event) {
                     if(!firefoxKeyTriggerFlag) {
                         if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
                             if (event.keyCode === 0) {
                                 if(interval === null) {
                                     interval = setInterval(function() {
-                                        $(sourceTextareaSelector).trigger('keydown');
+                                        triggerEvent(sourceTextareaElement);
                                         firefoxKeyTriggerFlag = true;
                                     }, 1000);
                                 }
@@ -1480,7 +1483,9 @@ window.hmd = (function() {
                             }
                         }
                     }
+                },
 
+                decodeSourceTextareaElementText = function(event) {
                     if(event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
                         event.preventDefault();
                         insertTabCharacter(this, event.shiftKey);
@@ -1488,7 +1493,7 @@ window.hmd = (function() {
 
                     if(!timeout) {
                         timeout = setTimeout(function() {
-                            $(targetElementSelector).html( translate.call(self, $(sourceTextareaSelector).val()) );
+                            targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
                             if(options.AutoScrollPreview) {
                                 scrollTargetElement();
                             }
@@ -1496,11 +1501,25 @@ window.hmd = (function() {
                             timeout = null;
                         }, 100);
                     }
+                },
 
-                }).trigger('keydown');
+                self     = this,
+                interval = null,
+                timeout  = null,
+                firefoxKeyTriggerFlag = false;
+
+                options = options === undefined ? {} : options;
+                options.UseTabKey         = options.UseTabKey === undefined         ? true    : options.UseTabKey;
+                options.TabCharacter      = options.TabCharacter === undefined      ? 'space' : options.TabCharacter;
+                options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true    : options.AutoScrollPreview;
+
+
+                sourceTextareaElement.addEventListener('keydown', forceKeydownEventForFirefox, false);
+                sourceTextareaElement.addEventListener('keydown', decodeSourceTextareaElementText, false);
+                decodeSourceTextareaElementText();
 
                 if(options.AutoScrollPreview) {
-                    $sourceTextarea.scroll(scrollTargetElement);
+                    sourceTextareaElement.addEventListener('scroll', scrollTargetElement, false);
                 }
             },
 
@@ -1512,3 +1531,13 @@ window.hmd = (function() {
         };
     })();
 })();
+
+// # hmd.ricaleinline (hmd add-on)
+//  - written by ricale
+//  - ricale@ricalest.net
+
+hmd.addInlineRules([
+    [/--([^-\s]{1,2}|-[^-\s]|[^-\s]-|(?:[^\s].+?[^\s]))--/g,          '<del>$1</del>'],
+    [/,,([^,\s]{1,2}|,[^,\s]|[^,\s],|(?:[^\s].+?[^\s])),,/g,          '<sub>$1</sub>'],
+    [/\^\^([^\^\s]{1,2}|\^[^\^\s]|[^\^\s]\^|(?:[^\s].+?[^\s]))\^\^/g, '<sup>$1</sup>']
+]);
