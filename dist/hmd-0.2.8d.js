@@ -1486,7 +1486,7 @@ window.hmd = (function() {
                 },
 
                 decodeSourceTextareaElementText = function(event) {
-                    if(event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
+                    if(event !== undefined && event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
                         event.preventDefault();
                         insertTabCharacter(this, event.shiftKey);
                     }
