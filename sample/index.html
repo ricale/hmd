@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <link type="text/css" rel="stylesheet" href="../dist/bootstrap.customized.min.css">
+  <style type="text/css">
+    html, body {
+      margin: 0px;
+      padding: 0px;
+    }
+
+    .box {
+      -webkit-box-sizing: border-box;
+         -moz-box-sizing: border-box;
+              box-sizing: border-box;
+
+      display: inline-block;
+      
+      width:  49%;
+      height: 400px;
+      margin: 5px 0;
+      padding: 3px;
+    }
+
+    .source.box {
+      margin-left: 5px;
+      margin-right: 5px;
+
+      border: 1px solid #000;
+    }
+
+    .target.box {
+      margin-right: 5px;
+
+      border: 1px solid #000;
+      overflow:auto;
+    }
+  </style>
+
+  <script type="text/javascript" src="../dist/hmd-0.2.8d.js"></script>
+  <script type="text/javascript">
+    window.onload = function() {
+      hmd.run(document.getElementById('source'), document.getElementById('target'))
+    }
+  </script>
+</head>
+
+<body>
+  <div id="header">
+    <h1>hme</h1>
+  </div>
+
+  <div id="container" class="container">
+    <textarea id="source" class="source box hmd-markdown"></textarea><div id="target" class="target box hmd-markdown"></div>
+  </div>
+</body>
+</html>

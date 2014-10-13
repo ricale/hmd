@@ -122,7 +122,7 @@ window.hmd = (function() {
                 regexp: regexp,
                 type:   type,
                 result: result, // or replacee
-                notReplaced: notReplaced || null,
+                notReplaced: notReplaced || null
             };
         },
 
@@ -1462,6 +1462,16 @@ window.hmd = (function() {
                     }
                 },
 
+                addEvent = function(element, eventName, listener) {
+                    if(element.addEventListener) {
+                        element.addEventListener(eventName, listener, false);
+                    } else if(element.attachEvent) {
+                        element.attachEvent("on"+eventName, listener);
+                    } else {
+                        element[eventName] = listener;
+                    }
+                },
+
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
                 forceKeydownEventForFirefox = function(event) {
@@ -1514,12 +1524,12 @@ window.hmd = (function() {
                 options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true    : options.AutoScrollPreview;
 
 
-                sourceTextareaElement.addEventListener('keydown', forceKeydownEventForFirefox, false);
-                sourceTextareaElement.addEventListener('keydown', decodeSourceTextareaElementText, false);
+                addEvent(sourceTextareaElement, 'keydown', forceKeydownEventForFirefox);
+                addEvent(sourceTextareaElement, 'keydown', decodeSourceTextareaElementText);
                 decodeSourceTextareaElementText();
 
                 if(options.AutoScrollPreview) {
-                    sourceTextareaElement.addEventListener('scroll', scrollTargetElement, false);
+                    addEvent(sourceTextareaElement, 'scroll', scrollTargetElement);
                 }
             },
 
