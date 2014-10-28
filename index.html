@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <link type="text/css" rel="stylesheet" href="bootstrap.customized.min.css">
+  <style type="text/css">
+    html, body {
+      margin: 0px;
+      padding: 0px;
+    }
+
+    del { color: #DDD; }
+    .header { margin: 0px 5px; }
+    .container { text-align: center; }
+
+    .box {
+      -webkit-box-sizing: border-box;
+         -moz-box-sizing: border-box;
+              box-sizing: border-box;
+
+      display: inline-block;
+      
+      width:  49%;
+      height: 400px;
+      margin: 5px 0;
+      padding: 3px;
+
+      vertical-align: middle;
+      text-align: left;
+    }
+    .source.box { margin-left: 5px; margin-right: 5px; border: 1px solid #000; }
+    .target.box { margin-right: 5px; border: 1px solid #000; overflow:auto; }
+  </style>
+
+  <script type="text/javascript" src="hmd-0.2.8d.js"></script>
+  <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+  <script type="text/javascript">
+    var resizeResponsive = function() {
+      var $window, $source, boxWidth, boxHeight;
+
+      $window = $(window);
+      $source = $('#source');
+
+      boxWidth  = $window.width() / 2 - 10;
+      boxHeight = $window.height() - $source.position().top - 15;
+
+      $('#source').css('width', boxWidth).css('height', boxHeight)
+      $('#target').css('width', boxWidth).css('height', boxHeight)
+    }
+
+    $(window).load(function() {
+      hmd.run(document.getElementById('source'), document.getElementById('target'))
+      resizeResponsive();
+    });
+
+    $(window).resize(resizeResponsive);
+
+  </script>
+</head>
+
+<body>
+  <div id="header" class="header">
+    <h1>hmd</h1>
+    <p>(handmade markdown decoder) <del>(head-mounted display)</del></p>
+  </div>
+
+  <div id="container" class="container">
+    <textarea id="source" class="source box hmd-markdown">hmd: 마크다운 문법으로 작성된 글을 번역하는 라이브러리
+- 작성자: ricale [ricale@ricalest.net][mail]
+- [소스코드 저장소][repo]
+- [작성자 블로그][blog]
+- [hmd 소개 및 간단 가이드][guide]
+
+[mail]: mailto:ricale@ricalest.net
+[repo]: https://github.com/ricale/hmd
+[blog]: http://weblog.ricalest.net/
+[guide]: http://weblog.ricalest.net/4</textarea><div id="target" class="target box hmd-markdown"></div>
+  </div>
+</body>
+</html>
