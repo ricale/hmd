@@ -1520,8 +1520,8 @@ window.hmd = (function() {
 
                 options = options === undefined ? {} : options;
                 options.UseTabKey         = options.UseTabKey === undefined         ? true    : options.UseTabKey;
-                options.TabCharacter      = options.TabCharacter === undefined      ? 'space' : options.TabCharacter;
                 options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true    : options.AutoScrollPreview;
+                // options.TabCharacter      = options.TabCharacter === undefined      ? 'space' : options.TabCharacter;
 
 
                 addEvent(sourceTextareaElement, 'keydown', forceKeydownEventForFirefox);
