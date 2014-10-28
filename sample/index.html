@@ -9,6 +9,10 @@
       padding: 0px;
     }
 
+    del { color: #DDD; }
+    .header { margin: 0px 5px; }
+    .container { text-align: center; }
+
     .box {
       -webkit-box-sizing: border-box;
          -moz-box-sizing: border-box;
@@ -20,34 +24,44 @@
       height: 400px;
       margin: 5px 0;
       padding: 3px;
+
+      vertical-align: middle;
+      text-align: left;
     }
-
-    .source.box {
-      margin-left: 5px;
-      margin-right: 5px;
-
-      border: 1px solid #000;
-    }
-
-    .target.box {
-      margin-right: 5px;
-
-      border: 1px solid #000;
-      overflow:auto;
-    }
+    .source.box { margin-left: 5px; margin-right: 5px; border: 1px solid #000; }
+    .target.box { margin-right: 5px; border: 1px solid #000; overflow:auto; }
   </style>
 
   <script type="text/javascript" src="../dist/hmd-0.2.8d.js"></script>
+  <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
   <script type="text/javascript">
-    window.onload = function() {
-      hmd.run(document.getElementById('source'), document.getElementById('target'))
+    var resizeResponsive = function() {
+      var $window, $source, boxWidth, boxHeight;
+
+      $window = $(window);
+      $source = $('#source');
+
+      boxWidth  = $window.width() / 2 - 10;
+      boxHeight = $window.height() - $source.position().top - 15;
+
+      $('#source').css('width', boxWidth).css('height', boxHeight)
+      $('#target').css('width', boxWidth).css('height', boxHeight)
     }
+
+    $(window).load(function() {
+      hmd.run(document.getElementById('source'), document.getElementById('target'))
+      resizeResponsive();
+    });
+
+    $(window).resize(resizeResponsive);
+
   </script>
 </head>
 
 <body>
-  <div id="header">
-    <h1>hme</h1>
+  <div id="header" class="header">
+    <h1>hmd</h1>
+    <p>(handmade markdown decoder) <del>(head-mounted display)</del></p>
   </div>
 
   <div id="container" class="container">
