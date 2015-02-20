@@ -1,3 +1,166 @@
+window.IndentHelper = (function () {
+    var indent = function(textarea, reversed) {
+        //////////
+        // variable for indent function scope
+        var tabCharacter = '    ',
+            source,
+
+        //////////
+        // private getter
+        getSourceInformation = function(textarea) {
+            var content        = textarea.value,
+                selectionStart = textarea.selectionStart,
+                selectionEnd   = textarea.selectionEnd,
+                selectedString = content.substring(selectionStart, selectionEnd);
+
+            return {
+                element:         textarea,
+                content:         content,
+                selectionStart:  selectionStart,
+                selectionEnd:    selectionEnd,
+                selectionString: selectedString
+            };
+        },
+
+        getReplaceeInformation = function() {
+            var start   = source.content.lastIndexOf('\n', source.selectionStart - 1),
+                end     = source.content.indexOf('\n', source.selectionEnd),
+                content = source.content.substring(start, end);
+
+            end = end == -1 ? source.content.length - 1 : end;
+
+            return {
+                start:   start,
+                end:     end,
+                content: content
+            };
+        },
+
+        //////////
+        // helper
+        replaceString = function(start, end, indentedString) {
+            source.element.value = source.content.substring(0, start) + indentedString + source.content.substring(end, source.content.length);
+        },
+
+        setTextareaSelection = function(replaceStart, selectionStart, selectionEnd) {
+            source.element.selectionStart = selectionStart;
+            if(source.element.selectionStart < replaceStart + 1)
+                source.element.selectionStart = replaceStart + 1;
+
+            if(selectionEnd < source.element.selectionStart)
+                selectionEnd = source.element.selectionStart;
+            source.element.selectionEnd = selectionEnd;
+        },
+
+        //////////
+        // indent or unindent functions
+        indentSelectedLine = function() {
+            replaceString(source.selectionStart, source.selectionEnd, tabCharacter);
+            setTextareaSelection(-1, source.selectionStart + tabCharacter.length, source.selectionStart + tabCharacter.length);
+        },
+
+        unindentSelectedLine = function() {
+            var removedTabCharacterLength,
+                replacee = getReplaceeInformation(),
+                replacedRegExp       = /(^|\n)([ ]{1,4})/;
+
+            if(replacee.content.match(replacedRegExp) === null) {
+                removedTabCharacterLength = 0;
+            } else {
+                removedTabCharacterLength = replacee.content.match(replacedRegExp)[2].length;
+            }
+
+            replaceString(replacee.start, replacee.end, replacee.content.replace(replacedRegExp, '$1'));
+            setTextareaSelection(replacee.start, source.selectionStart - removedTabCharacterLength, source.selectionStart - removedTabCharacterLength);
+        },
+
+        indentSelectedLines = function() {
+            var replacee = getReplaceeInformation(),
+                replacedRegExp       = /(^|\n)(?!\n)/g;
+
+            replaceString(replacee.start, replacee.end, replacee.content.replace(replacedRegExp, "$1"+tabCharacter));
+            setTextareaSelection(replacee.start, source.selectionStart + tabCharacter.length, source.selectionEnd + (tabCharacter.length * source.selectionString.match(replacedRegExp).length));
+        },
+
+        unindentSelectedLines = function() {
+            var replacee = getReplaceeInformation(),
+                replacedRegExp       = /(^|\n)([ ]{1,4})/g,
+                removedTabs          = replacee.content.match(replacedRegExp),
+                removedTabCharacterLength = 0,
+                firstTabLength            = 0,
+                lastMatchOfSelectedString,
+                index,
+                value;
+
+            if(removedTabs !== null) {
+                lastMatchOfSelectedString = source.selectionString.match('\n[ ]{0,3}$');
+
+                for(index = 0; index < removedTabs.length; index++) {
+                    value = removedTabs[index];
+                    if(index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
+                        removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
+                    } else {
+                        removedTabCharacterLength += lastMatchOfSelectedString[0].length - 1;
+                    }
+                }
+
+                if(source.content.substring(replacee.start, source.selectionStart).match(replacedRegExp) !== null) {
+                    firstTabLength = removedTabs[0].match(/[ ]+/)[0].length;
+                }
+            }
+
+            replaceString(replacee.start, replacee.end, replacee.content.replace(replacedRegExp, "$1"));
+            setTextareaSelection(replacee.start, source.selectionStart - firstTabLength, source.selectionEnd - removedTabCharacterLength);
+        };
+
+
+
+        if(document.selection) {
+            ////////////
+            // for IE //
+            ////////////
+
+        } else {
+            source = getSourceInformation(textarea);
+
+            if(source.selectionString.match(/\n/) === null) {
+                if(reversed)
+                    unindentSelectedLine();
+                else
+                    indentSelectedLine();
+
+            } else {
+                if(reversed)
+                    unindentSelectedLines();
+                else
+                    indentSelectedLines();
+            }
+        }
+    };
+
+    return {
+        indent: indent,
+
+        eventListener: function (event) {
+            if(event !== undefined && event.keyCode == 9) {
+                event.preventDefault();
+                indent(this, event.shiftKey);
+            }
+        },
+
+        addEventListener: function(targetElement, eventName) {
+            if(targetElement.addEventListener) {
+                targetElement.addEventListener(eventName, this.eventListener, false);
+            } else if(targetElement.attachEvent) {
+                targetElement.attachEvent("on"+eventName, this.eventListener);
+            } else {
+                targetElement[eventName] = this.eventListener;
+            }
+        }
+    };
+
+})();
+
 if (!Array.prototype.last) {
     Array.prototype.last = function(){
         return this[this.length - 1];
@@ -61,8 +224,10 @@ window.hmd = (function() {
     regExpReferencedId = [
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/,
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/
-    ];
+    ],
 
+    INTERVAL_FOR_KEY_PRESS = 200,
+    INTERVAL_FOR_UPDATE    = 1000;
 
     //
     // # private objects
@@ -996,6 +1161,9 @@ window.hmd = (function() {
 
                 // b 혹은 c
                 result = matching(line[3]);
+                if(result === null) 
+                    return null;
+
                 indent = getIndentLevel(line[1] + line[2]);
                 indent = indent / 4 - indent / 4 % 1 + (indent % 4 !== 0);
 
@@ -1205,6 +1373,7 @@ window.hmd = (function() {
             var current = analyzedSentences.current(),
                 prev, previousChunk, nextChunk;
 
+
             if(current.isList() && current.listLevel() > blockElementStack.listLevel()) {
                 string += blockElementStack.push(current.tag, current.level);
 
@@ -1217,7 +1386,7 @@ window.hmd = (function() {
             if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && current.level !== 0) {
                 prev = analyzedSentences.previousLine();
 
-                if(current.isParagraph() && prev.isBlank()) {
+                if(current.isParagraph() && prev !== null && prev.isBlank()) {
                     if(current.listLevel() == blockElementStack.listLevel()) {
                         string += blockElementStack.push(P);
                     }
@@ -1303,243 +1472,144 @@ window.hmd = (function() {
         return string;
     };
 
-    return (function() {
-        
-        //
-        // ### public methods
-        /////////////////////
+    return {
+        decode: function(string) {
+            return translate.call(this, string);
+        },
 
-        return {
-            decode: function(string) {
-                return translate.call(this, string);
+        // - sourceTextareaElement : 마크다운 형식의 문자열이 있는 HTML의 textarea element
+        // - targetElement : HTML 형식의 번역 결과가 출력될 HTML element
+        run: function(sourceTextareaElement, targetElement, options) {
+            var scrollTargetElement = function() {
+                var thisElement   = sourceTextareaElement,
+                    targetScrollHeight = targetElement.scrollHeight,
+                    targetClientHeight = targetElement.clientHeight,
+                    thisScrollTop    = thisElement.scrollTop,
+                    thisScrollHeight = thisElement.scrollHeight,
+                    thisClientHeight = thisElement.clientHeight,
+                    scrollTop = (thisScrollTop / (thisScrollHeight - thisClientHeight)) * (targetScrollHeight - targetClientHeight);
+
+                targetElement.scrollTop = scrollTop;
+                // $target.scrollTop(scrollTop);
             },
 
-            // - sourceTextareaElement : 마크다운 형식의 문자열이 있는 HTML의 textarea element
-            // - targetElement : HTML 형식의 번역 결과가 출력될 HTML element
-            run: function(sourceTextareaElement, targetElement, options) {
-                var scrollTargetElement = function() {
-                    var thisElement   = sourceTextareaElement,
-                        targetScrollHeight = targetElement.scrollHeight,
-                        targetClientHeight = targetElement.clientHeight,
-                        thisScrollTop    = thisElement.scrollTop,
-                        thisScrollHeight = thisElement.scrollHeight,
-                        thisClientHeight = thisElement.clientHeight,
-                        scrollTop = (thisScrollTop / (thisScrollHeight - thisClientHeight)) * (targetScrollHeight - targetClientHeight);
+            triggerEvent = function(element, eventName) {
+                var event; // The custom event that will be created
 
-                    targetElement.scrollTop = scrollTop;
-                    // $target.scrollTop(scrollTop);
-                },
+                if (document.createEvent) {
+                    event = document.createEvent("HTMLEvents");
+                    event.initEvent(eventName, true, true);
+                } else {
+                    event = document.createEventObject();
+                    event.eventType = eventName;
+                }
 
-                insertTabCharacter = function(textarea, shifted) {
-                    var replaceString = function(start, end, insertedString) {
-                        textarea.value = textareaString.substring(0, start) + insertedString + textareaString.substring(end, textareaString.length);
-                    },
+                event.eventName = eventName;
 
-                    getReplaceStartPosition = function() {
-                        return textareaString.lastIndexOf('\n', startPosition - 1);
-                    },
-
-                    getReplaceEndPosition = function() {
-                        var position = textareaString.indexOf('\n', endPosition);
-                        return position == -1 ? textareaString.length - 1 : position;
-                    },
-
-                    setTextareaSelection = function(selectionStartPosition, selectionEndPosition) {
-                        textarea.selectionStart = selectionStartPosition;
-                        if(textarea.selectionStart < replaceStartPosition + 1)
-                            textarea.selectionStart = replaceStartPosition + 1;
-
-                        if(selectionEndPosition < textarea.selectionStart)
-                            selectionEndPosition = textarea.selectionStart;
-                        textarea.selectionEnd = selectionEndPosition;
-                    },
-
-                    // tabCharacter = options.TabCharacter == 'tab' ? '\t' : '    ',
-                    tabCharacter = '    ', removedTabCharacterLength, removedTabs, firstTabLength,
-                    startPosition, endPosition, replaceStartPosition, replaceEndPosition, lastMatchOfSelectedString,
-                    textareaString, selectedString, replacedString, replacedRegExp = null,
-                    selectedRange,
-                    index, value;
-
-
-                    if(document.selection) {
-                        textarea.focus();
-                        selectedRange = document.selection.createRange();
-                        selectedRange.text = tabCharacter;
-
-                    } else {
-                        textareaString = textarea.value;
-                        startPosition  = textarea.selectionStart;
-                        endPosition    = textarea.selectionEnd;
-
-                        selectedString = textareaString.substring(startPosition, endPosition);
-
-                        if(selectedString.match(/\n/) === null) {
-                            if(shifted) {
-                                replaceStartPosition = getReplaceStartPosition();
-                                replaceEndPosition   = getReplaceEndPosition();
-
-                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition);
-                                replacedRegExp = /(^|\n)([ ]{1,4})/;
-
-                                if(replacedString.match(replacedRegExp) === null) {
-                                    removedTabCharacterLength = 0;
-                                } else {
-                                    removedTabCharacterLength = replacedString.match(replacedRegExp)[2].length;
-                                }
-
-                                replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, '$1'));
-                                setTextareaSelection(startPosition - removedTabCharacterLength, startPosition - removedTabCharacterLength);
-
-                            } else {
-                                replaceString(startPosition, endPosition, tabCharacter);
-                                setTextareaSelection(startPosition + tabCharacter.length, startPosition + tabCharacter.length);
-                            }
-
-                        } else {
-                            if(shifted) {
-                                replaceStartPosition = getReplaceStartPosition();
-                                replaceEndPosition   = getReplaceEndPosition();
-
-                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition);
-                                replacedRegExp = /(^|\n)([ ]{1,4})/g;
-
-                                removedTabs = replacedString.match(replacedRegExp);
-                                removedTabCharacterLength = 0;
-                                firstTabLength = 0;
-
-                                if(removedTabs !== null) {
-                                    lastMatchOfSelectedString = selectedString.match('\n[ ]{0,3}$');
-
-                                    for(index = 0; index < removedTabs.length; index++) {
-                                        value = removedTabs[index];
-                                        if(index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
-                                            removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
-                                        } else {
-                                            removedTabCharacterLength += lastMatchOfSelectedString[0].length - 1;
-                                        }
-                                    }
-
-                                    if(textareaString.substring(replaceStartPosition, startPosition).match(replacedRegExp) !== null) {
-                                        firstTabLength = removedTabs[0].match(/[ ]+/)[0].length;
-                                    }
-                                }
-
-                                replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, "$1"));
-                                setTextareaSelection(startPosition - firstTabLength, endPosition - removedTabCharacterLength);
-
-                            } else {
-                                replaceStartPosition = getReplaceStartPosition();
-                                replaceEndPosition   = getReplaceEndPosition();
-
-                                replacedString = textareaString.substring(replaceStartPosition, replaceEndPosition);
-                                replacedRegExp = /(^|\n)(?!\n)/g;
-
-                                replaceString(replaceStartPosition, replaceEndPosition, replacedString.replace(replacedRegExp, "$1"+tabCharacter));
-                                setTextareaSelection(startPosition + tabCharacter.length, endPosition + (tabCharacter.length * selectedString.match(replacedRegExp).length));
-                            }
-                        }
-                    }
-                },
-
-                triggerEvent = function(element, eventName) {
-                    var event; // The custom event that will be created
-
-                    if (document.createEvent) {
-                        event = document.createEvent("HTMLEvents");
-                        event.initEvent(eventName, true, true);
-                    } else {
-                        event = document.createEventObject();
-                        event.eventType = eventName;
-                    }
-
-                    event.eventName = eventName;
-
-                    if (document.createEvent) {
-                        element.dispatchEvent(event);
-                    } else {
-                        element.fireEvent("on" + event.eventType, event);
-                    }
-                },
-
-                addEvent = function(element, eventName, listener) {
-                    if(element.addEventListener) {
-                        element.addEventListener(eventName, listener, false);
-                    } else if(element.attachEvent) {
-                        element.attachEvent("on"+eventName, listener);
-                    } else {
-                        element[eventName] = listener;
-                    }
-                },
-
-                // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
-                // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
-                forceKeydownEventForFirefox = function(event) {
-                    if(!firefoxKeyTriggerFlag) {
-                        if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
-                            if (event.keyCode === 0) {
-                                if(interval === null) {
-                                    interval = setInterval(function() {
-                                        triggerEvent(sourceTextareaElement);
-                                        firefoxKeyTriggerFlag = true;
-                                    }, 1000);
-                                }
-
-                            } else {
-                                if(interval !== null) {
-                                    clearInterval(interval);
-                                    interval = null;
-                                }
-                            }
-                        }
-                    }
-                },
-
-                decodeSourceTextareaElementText = function(event) {
-                    if(event !== undefined && event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
-                        event.preventDefault();
-                        insertTabCharacter(this, event.shiftKey);
-                    }
-
-                    if(!timeout) {
-                        timeout = setTimeout(function() {
-                            targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
-                            if(options.AutoScrollPreview) {
-                                scrollTargetElement();
-                            }
-
-                            timeout = null;
-                        }, 100);
-                    }
-                },
-
-                self     = this,
-                interval = null,
-                timeout  = null,
-                firefoxKeyTriggerFlag = false;
-
-                options = options === undefined ? {} : options;
-                options.UseTabKey         = options.UseTabKey === undefined         ? true    : options.UseTabKey;
-                options.TabCharacter      = options.TabCharacter === undefined      ? 'space' : options.TabCharacter;
-                options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true    : options.AutoScrollPreview;
-
-
-                addEvent(sourceTextareaElement, 'keydown', forceKeydownEventForFirefox);
-                addEvent(sourceTextareaElement, 'keydown', decodeSourceTextareaElementText);
-                decodeSourceTextareaElementText();
-
-                if(options.AutoScrollPreview) {
-                    addEvent(sourceTextareaElement, 'scroll', scrollTargetElement);
+                if (document.createEvent) {
+                    element.dispatchEvent(event);
+                } else {
+                    element.fireEvent("on" + event.eventType, event);
                 }
             },
 
-            // 추가적인 인라인 요소 번역 함수를 설정한다.
-            // 이는 기존의 인라인 요소 문법에 대한 확인이 모두 끝난 다음에 실행된다.
-            addInlineRules: function(rulesArray) {
-                inlineRule.addRule(rulesArray);
+            addEvent = function(element, eventName, listener) {
+                if(element.addEventListener) {
+                    element.addEventListener(eventName, listener, false);
+                } else if(element.attachEvent) {
+                    element.attachEvent("on"+eventName, listener);
+                } else {
+                    element[eventName] = listener;
+                }
+            },
+
+            // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
+            // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
+            forceKeydownEventForFirefox = function() {
+                if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
+                    if(forceFirfoxKeyPressIntervalId === null) {
+
+                        forceFirfoxKeyPressIntervalId = setInterval(function() {
+                            var now = new Date().getTime();
+                            if(now - lastPressedTime > INTERVAL_FOR_KEY_PRESS) {
+                                if(lastSource != sourceTextareaElement.value) {
+                                    lastSource = sourceTextareaElement.value;
+                                    triggerEvent(sourceTextareaElement, 'keydown');
+                                }
+                            }
+                        }, INTERVAL_FOR_KEY_PRESS);
+                    }
+                }
+            },
+
+            decodeSourceTextareaElementText = function(event) {
+                var now;
+
+                if(event !== undefined && event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
+                    event.preventDefault();
+                    IndentHelper.indent(this, event.shiftKey);
+                }
+
+                now = new Date().getTime();
+                if(now - lastPressedTime < INTERVAL_FOR_KEY_PRESS) {
+                    clearTimeout(lastPressedTimeoutId);
+                }
+
+                lastPressedTime = now;
+                lastPressedTimeoutId = setTimeout(function() {
+                    targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
+                    needToUpdate = false;
+                    if(options.AutoScrollPreview) {
+                        scrollTargetElement();
+                    }
+                    clearTimeout(firstPressedTimeoutId);
+                }, INTERVAL_FOR_KEY_PRESS);
+
+                if(!needToUpdate) {
+                    needToUpdate = true;
+                    firstPressedTimeoutId = setTimeout(function() {
+                        targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
+                        needToUpdate = false;
+                        if(options.AutoScrollPreview) {
+                            scrollTargetElement();
+                        }
+                    }, INTERVAL_FOR_UPDATE);
+                }
+            },
+
+            self = this,
+            lastSource = sourceTextareaElement.value,
+            forceFirfoxKeyPressIntervalId = null,
+
+            lastPressedTime = 0,
+            lastPressedTimeoutId = null,
+            firstPressedTimeoutId = null,
+            needToUpdate = false;
+
+            options = options === undefined ? {} : options;
+            options.UseTabKey         = options.UseTabKey         === undefined ? true : options.UseTabKey;
+            options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true : options.AutoScrollPreview;
+            // options.TabCharacter = options.TabCharacter === undefined ? 'space' : options.TabCharacter;
+
+
+            forceKeydownEventForFirefox();
+            decodeSourceTextareaElementText();
+            addEvent(sourceTextareaElement, 'keydown', decodeSourceTextareaElementText);
+            addEvent(sourceTextareaElement, 'keyup',   function (event) {
+                lastSource = event.target.value;
+            });
+
+            if(options.AutoScrollPreview) {
+                addEvent(sourceTextareaElement, 'scroll', scrollTargetElement);
             }
-        };
-    })();
+        },
+
+        // 추가적인 인라인 요소 번역 함수를 설정한다.
+        // 이는 기존의 인라인 요소 문법에 대한 확인이 모두 끝난 다음에 실행된다.
+        addInlineRules: function(rulesArray) {
+            inlineRule.addRule(rulesArray);
+        }
+    };
 })();
 
 // # hmd.ricaleinline (hmd add-on)
