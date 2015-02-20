@@ -61,8 +61,10 @@ window.hmd = (function() {
     regExpReferencedId = [
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/,
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/
-    ];
+    ],
 
+    INTERVAL_FOR_KEY_PRESS = 200,
+    INTERVAL_FOR_UPDATE    = 1000,
 
     //
     // # private objects
@@ -1205,6 +1207,7 @@ window.hmd = (function() {
             var current = analyzedSentences.current(),
                 prev, previousChunk, nextChunk;
 
+
             if(current.isList() && current.listLevel() > blockElementStack.listLevel()) {
                 string += blockElementStack.push(current.tag, current.level);
 
@@ -1217,7 +1220,7 @@ window.hmd = (function() {
             if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && current.level !== 0) {
                 prev = analyzedSentences.previousLine();
 
-                if(current.isParagraph() && prev.isBlank()) {
+                if(current.isParagraph() && prev !== null && prev.isBlank()) {
                     if(current.listLevel() == blockElementStack.listLevel()) {
                         string += blockElementStack.push(P);
                     }
@@ -1475,58 +1478,76 @@ window.hmd = (function() {
                 // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
                 // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
                 forceKeydownEventForFirefox = function(event) {
-                    if(!firefoxKeyTriggerFlag) {
-                        if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
-                            if (event.keyCode === 0) {
-                                if(interval === null) {
-                                    interval = setInterval(function() {
-                                        triggerEvent(sourceTextareaElement);
-                                        firefoxKeyTriggerFlag = true;
-                                    }, 1000);
-                                }
+                    if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
+                        if(forceFirfoxKeyPressIntervalId === null) {
 
-                            } else {
-                                if(interval !== null) {
-                                    clearInterval(interval);
-                                    interval = null;
+                            forceFirfoxKeyPressIntervalId = setInterval(function() {
+                                var now = new Date().getTime();
+                                if(now - lastPressedTime > INTERVAL_FOR_KEY_PRESS) {
+                                    if(lastSource != sourceTextareaElement.value) {
+                                        triggerEvent(sourceTextareaElement, 'keydown');
+                                    }
                                 }
-                            }
+                            }, INTERVAL_FOR_KEY_PRESS);
                         }
                     }
                 },
 
                 decodeSourceTextareaElementText = function(event) {
+                    var now;
+
+                    lastSource = sourceTextareaElement.value;
+
                     if(event !== undefined && event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
                         event.preventDefault();
                         insertTabCharacter(this, event.shiftKey);
                     }
 
-                    if(!timeout) {
-                        timeout = setTimeout(function() {
+                    now = new Date().getTime();
+                    if(now - lastPressedTime < INTERVAL_FOR_KEY_PRESS) {
+                        clearTimeout(lastPressedTimeoutId);
+                    }
+
+                    lastPressedTime = now;
+                    lastPressedTimeoutId = setTimeout(function() {
+                        targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
+                        needToUpdate = false;
+                        if(options.AutoScrollPreview) {
+                            scrollTargetElement();
+                        }
+                        clearTimeout(firstPressedTimeoutId);
+                    }, INTERVAL_FOR_KEY_PRESS);
+
+                    if(!needToUpdate) {
+                        needToUpdate = true;
+                        firstPressedTimeoutId = setTimeout(function() {
                             targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
+                            needToUpdate = false;
                             if(options.AutoScrollPreview) {
                                 scrollTargetElement();
                             }
-
-                            timeout = null;
-                        }, 100);
+                        }, INTERVAL_FOR_UPDATE)
                     }
                 },
 
-                self     = this,
-                interval = null,
-                timeout  = null,
-                firefoxKeyTriggerFlag = false;
+                self = this,
+                lastSource = sourceTextareaElement.value,
+                forceFirfoxKeyPressIntervalId = null,
+
+                lastPressedTime = 0,
+                lastPressedTimeoutId = null,
+                firstPressedTimeoutId = null,
+                needToUpdate = false,
 
                 options = options === undefined ? {} : options;
-                options.UseTabKey         = options.UseTabKey === undefined         ? true    : options.UseTabKey;
-                options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true    : options.AutoScrollPreview;
-                // options.TabCharacter      = options.TabCharacter === undefined      ? 'space' : options.TabCharacter;
+                options.UseTabKey         = options.UseTabKey         === undefined ? true : options.UseTabKey;
+                options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true : options.AutoScrollPreview;
+                // options.TabCharacter = options.TabCharacter === undefined ? 'space' : options.TabCharacter;
 
 
-                addEvent(sourceTextareaElement, 'keydown', forceKeydownEventForFirefox);
-                addEvent(sourceTextareaElement, 'keydown', decodeSourceTextareaElementText);
+                forceKeydownEventForFirefox()
                 decodeSourceTextareaElementText();
+                addEvent(sourceTextareaElement, 'keydown', decodeSourceTextareaElementText);
 
                 if(options.AutoScrollPreview) {
                     addEvent(sourceTextareaElement, 'scroll', scrollTargetElement);
