@@ -1,6 +1,6 @@
 # hmd
 
-handmade javascript decoder
+handmade markdown decoder
 
 # Documentation
 
