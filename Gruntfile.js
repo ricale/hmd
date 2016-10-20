@@ -25,10 +25,6 @@ module.exports = function(grunt) {
         src: ['<%= directories.lib %>/indent_helper/indent_helper.js','<%= directories.src %>/hmd.js','<%= directories.src %>/hmd-addon.js'],
         dest: '<%= directories.dest %>/<%= pkg.name %>-<%= pkg.version %>.js',
       },
-      bootstrap: {
-        src: ['<%= directories.lib %>/bootstrap/*.css'],
-        dest: '<%= directories.dest %>/bootstrap.customized.css',
-      },
     },
     uglify: {
       options: {
@@ -37,13 +33,6 @@ module.exports = function(grunt) {
       dist: {
         src: ['<%= concat.basic.dest %>'],
         dest: '<%= directories.dest %>/<%= pkg.name %>.min.js'
-      }
-    },
-    cssmin: {
-      combine: {
-        files: {
-          '<%= directories.dest %>/bootstrap.customized.min.css': ['<%= concat.bootstrap.dest %>']
-        }
       }
     },
     jshint: {
@@ -90,12 +79,11 @@ module.exports = function(grunt) {
   // These plugins provide necessary tasks.
   grunt.loadNpmTasks('grunt-contrib-concat');
   grunt.loadNpmTasks('grunt-contrib-uglify');
-  grunt.loadNpmTasks('grunt-contrib-cssmin');
   // grunt.loadNpmTasks('grunt-contrib-qunit');
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-watch');
 
   // Default task.
-  grunt.registerTask('default', ['jshint', /*'qunit',*/ 'concat', 'uglify', 'cssmin']);
+  grunt.registerTask('default', ['jshint', /*'qunit',*/ 'concat', 'uglify']);
 
 };
