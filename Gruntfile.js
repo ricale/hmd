@@ -22,7 +22,7 @@ module.exports = function(grunt) {
       basic: {
         banner: '<%= banner %>',
         stripBanners: true,
-        src: ['<%= directories.lib %>/indent_helper/indent_helper.js','<%= directories.src %>/hmd.js','<%= directories.src %>/hmd-addon.js'],
+        src: ['<%= directories.src %>/indent_helper.js','<%= directories.src %>/hmd.js','<%= directories.src %>/hmd-addon.js'],
         dest: '<%= directories.dest %>/<%= pkg.name %>-<%= pkg.version %>.js',
       },
     },
