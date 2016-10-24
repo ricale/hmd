@@ -22,19 +22,23 @@ module.exports = function(grunt) {
       basic: {
         banner: '<%= banner %>',
         stripBanners: true,
-        src: ['<%= directories.src %>/indent_helper.js','<%= directories.src %>/hmd.js','<%= directories.src %>/hmd-addon.js'],
-        dest: '<%= directories.dest %>/<%= pkg.name %>-<%= pkg.version %>.js',
+        src: [
+          // '<%= directories.src %>/indent_helper.js',
+          // '<%= directories.src %>/hmd-addon.js'
+          '<%= directories.src %>/hmd.js'
+        ],
+        dest: '<%= directories.dest %>/index.js',
       },
     },
-    uglify: {
-      options: {
-        banner: '<%= banner %>'
-      },
-      dist: {
-        src: ['<%= concat.basic.dest %>'],
-        dest: '<%= directories.dest %>/<%= pkg.name %>.min.js'
-      }
-    },
+    // uglify: {
+    //   options: {
+    //     banner: '<%= banner %>'
+    //   },
+    //   dist: {
+    //     src: ['<%= concat.basic.dest %>'],
+    //     dest: '<%= directories.dest %>/<%= pkg.name %>.min.js'
+    //   }
+    // },
     jshint: {
       options: {
         // curly: true,
@@ -50,7 +54,7 @@ module.exports = function(grunt) {
         eqnull: true,
         browser: true,
         globals: {
-          'hmd': true,
+          'module': true,
           'IndentHelper': true
         }
       },
@@ -84,6 +88,6 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-watch');
 
   // Default task.
-  grunt.registerTask('default', ['jshint', /*'qunit',*/ 'concat', 'uglify']);
+  grunt.registerTask('default', ['jshint', /*'qunit',*/ 'concat', /*'uglify'*/]);
 
 };

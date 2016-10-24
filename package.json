@@ -1,6 +1,7 @@
 {
-  "name": "hmd",
-  "version": "0.2.8.1",
+  "name": "lemon-juice",
+  "version": "0.1.0",
+  "main": "dist/index.js",
   "author": {
     "name": "ricale",
     "email": "ricale@ricalest.net"
