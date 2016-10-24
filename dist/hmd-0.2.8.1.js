@@ -179,34 +179,31 @@ if (!Array.prototype.last) {
 window.hmd = (function() {
     "use strict";
 
-    var listLevel, listLevelInBlockquote,
-        escapeRule, inlineRule, AnalyzedSentence,
-        analyzedSentences,
-        blockElementStack,
-        translate,
-        matching,
-        matchBlockquotes,
-        getIndentLevel,
-        decode,
+    var listLevel, listLevelInBlockquote;
+    var translate;
+    var matching;
+    var matchBlockquotes;
+    var getIndentLevel;
+    var decode;
 
     //
     // # private constants
     //////////////////////
 
     // 어떤 마크다운 문법이 적용되었는지 구분할 때 쓰일 구분자들 (string) 
-    P = "p",
-    H1 = "h1",
-    H2 = "h2",
-    H3 = "h3",
-    H4 = "h4",
-    H5 = "h5",
-    H6 = "h6",
-    HR = "hr",
-    UL = "ul",
-    OL = "ol",
-    BLANK = "blank",
-    CODEBLOCK = "codeblock",
-    BLOCKQUOTE = "blockquote",
+    var P = "p";
+    var H1 = "h1";
+    var H2 = "h2";
+    var H3 = "h3";
+    var H4 = "h4";
+    var H5 = "h5";
+    var H6 = "h6";
+    var HR = "hr";
+    var UL = "ul";
+    var OL = "ol";
+    var BLANK = "blank";
+    var CODEBLOCK = "codeblock";
+    var BLOCKQUOTE = "blockquote";
 
     // ## 블록 요소 마크다운의 정규 표현식들
 
@@ -214,29 +211,29 @@ window.hmd = (function() {
     // Blockquote > Heading Underlined > HR > (UL, OL, ContinuedList) > (Codeblock, Heading, ReferencedId)
     // Blank > Codeblock
 
-    regExpBlockquote = /^[ ]{0,3}(>+)[ ]?([ ]*.*)$/,
-    regExpH1Underlined = /^=+$/,
-    regExpH2Underlined = /^-+$/,
-    regExpHR = /^[ ]{0,3}([-_*][ ]*){3,}$/,
-    regExpUL = /^([\s]*)[*+-][ ]+(.*)$/,
-    regExpOL = /^([\s]*)[\d]+\.[ ]+(.*)$/,
-    regExpBlank = /^[\s]*$/,
-    regExpContinuedList = /^([ ]{1,8})([\s]*)(.*)/,
-    regExpCodeblock = /^([ ]{0,3}\t|[ ]{4})([\s]*.*)$/,
-    regExpHeading = /^(#{1,6}) (.*[^#])(#*)$/,
-    regExpReferencedId = [
+    var regExpBlockquote    = /^[ ]{0,3}(>+)[ ]?([ ]*.*)$/;
+    var regExpH1Underlined  = /^=+$/;
+    var regExpH2Underlined  = /^-+$/;
+    var regExpHR            = /^[ ]{0,3}([-_*][ ]*){3,}$/;
+    var regExpUL            = /^([\s]*)[*+-][ ]+(.*)$/;
+    var regExpOL            = /^([\s]*)[\d]+\.[ ]+(.*)$/;
+    var regExpBlank         = /^[\s]*$/;
+    var regExpContinuedList = /^([ ]{1,8})([\s]*)(.*)/;
+    var regExpCodeblock     = /^([ ]{0,3}\t|[ ]{4})([\s]*.*)$/;
+    var regExpHeading       = /^(#{1,6}) (.*[^#])(#*)$/;
+    var regExpReferencedId = [
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/,
         /^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/
-    ],
+    ];
 
-    INTERVAL_FOR_KEY_PRESS = 200,
-    INTERVAL_FOR_UPDATE    = 1000;
+    var INTERVAL_FOR_KEY_PRESS = 200;
+    var INTERVAL_FOR_UPDATE    = 1000;
 
     //
     // # private objects
     //////////////////////
 
-    escapeRule = (function() {
+    var escapeRule = (function() {
         var regexp = /\\([\\\-\*\.\[\]\(\)_+<>#`^])/g,
             returnRegexp = /;;ESCAPE([0-9]+);;/g,
             replacee = ['-', '_', '*', '+', '.', '<',    '>',    '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
@@ -271,7 +268,7 @@ window.hmd = (function() {
         })();
     })();
 
-    inlineRule = (function() {
+    var inlineRule = (function() {
         var NORMAL = 0,
             NEED_REPLACER = 1,
             REFERENCED = 2,
@@ -408,7 +405,7 @@ window.hmd = (function() {
         })();
     })();
 
-    analyzedSentences = (function() {
+    var analyzedSentences = (function() {
         var sentences = [],
             currentIndex = null;
 
@@ -590,7 +587,7 @@ window.hmd = (function() {
         })();
     })();
 
-    blockElementStack = (function() {
+    var blockElementStack = (function() {
         var elements = [],
             currentQuoteLevel = 0,
             currentListLevel = 0;
@@ -798,7 +795,7 @@ window.hmd = (function() {
     // # private inner classes
     ////////////////////
 
-    AnalyzedSentence = function() {
+    var AnalyzedSentence = function() {
         this.index = null;
         // 이 문장의 실제 내용 (string)
         this.content = null;
@@ -810,84 +807,82 @@ window.hmd = (function() {
         this.quote = 0;
     };
 
-    AnalyzedSentence.prototype = {
-        listLevel: function() {
-            return this.level === 0 ? 0 : this.level + this.quote * 100;
-        },
+    AnalyzedSentence.prototype.listLevel = function() {
+        return this.level === 0 ? 0 : this.level + this.quote * 100;
+    };
 
-        isParagraph: function() {
-            return this.tag == P;
-        },
+    AnalyzedSentence.prototype.isParagraph = function() {
+        return this.tag == P;
+    };
 
-        isUnorderedList: function() {
-            return this.tag == UL;
-        },
+    AnalyzedSentence.prototype.isUnorderedList = function() {
+        return this.tag == UL;
+    };
 
-        isOrderedList: function() {
-            return this.tag == OL;
-        },
+    AnalyzedSentence.prototype.isOrderedList = function() {
+        return this.tag == OL;
+    };
 
-        isList: function() {
-            return this.isUnorderedList() || this.isOrderedList();
-        },
+    AnalyzedSentence.prototype.isList = function() {
+        return this.isUnorderedList() || this.isOrderedList();
+    };
 
-        isBlank: function() {
-            return this.tag == BLANK;
-        },
+    AnalyzedSentence.prototype.isBlank = function() {
+        return this.tag == BLANK;
+    };
 
-        isCodeblock: function() {
-            return this.tag == CODEBLOCK;
-        },
+    AnalyzedSentence.prototype.isCodeblock = function() {
+        return this.tag == CODEBLOCK;
+    };
 
-        isHeading: function() {
-            return (this.tag == H1 ||
-                    this.tag == H2 ||
-                    this.tag == H3 ||
-                    this.tag == H4 ||
-                    this.tag == H5 ||
-                    this.tag == H6);
-        },
+    AnalyzedSentence.prototype.isHeading = function() {
+        return (this.tag == H1 ||
+                this.tag == H2 ||
+                this.tag == H3 ||
+                this.tag == H4 ||
+                this.tag == H5 ||
+                this.tag == H6);
+    };
 
-        isHorizontalLine: function() {
-            return this.tag == HR;
-        },
+    AnalyzedSentence.prototype.isHorizontalLine = function() {
+        return this.tag == HR;
+    };
 
-        isNotParagraph: function() {
-            return this.tag != P;
-        },
+    AnalyzedSentence.prototype.isNotParagraph = function() {
+        return this.tag != P;
+    };
 
-        isNotUnorderedList: function() {
-            return this.tag != UL;
-        },
+    AnalyzedSentence.prototype.isNotUnorderedList = function() {
+        return this.tag != UL;
+    };
 
-        isNotOrderedList: function() {
-            return this.tag != OL;
-        },
+    AnalyzedSentence.prototype.isNotOrderedList = function() {
+        return this.tag != OL;
+    };
 
-        isNotList: function() {
-            return this.isNotUnorderedList() && this.isNotOrderedList();
-        },
+    AnalyzedSentence.prototype.isNotList = function() {
+        return this.isNotUnorderedList() && this.isNotOrderedList();
+    };
 
-        isNotBlank: function() {
-            return this.tag != BLANK;
-        },
+    AnalyzedSentence.prototype.isNotBlank = function() {
+        return this.tag != BLANK;
+    };
 
-        isNotCodeblock: function() {
-            return this.tag != CODEBLOCK;
-        },
+    AnalyzedSentence.prototype.isNotCodeblock = function() {
+        return this.tag != CODEBLOCK;
+    };
 
-        isNotHeading: function() {
-            return (this.tag != H1 &&
-                    this.tag != H2 &&
-                    this.tag != H3 &&
-                    this.tag != H4 &&
-                    this.tag != H5 &&
-                    this.tag != H6);
-        },
+    AnalyzedSentence.prototype.isNotHeading = function() {
+        return (this.tag != H1 &&
+                this.tag != H2 &&
+                this.tag != H3 &&
+                this.tag != H4 &&
+                this.tag != H5 &&
+                this.tag != H6);
+    };
 
-        isNotHorizontalLine: function() {
-            return this.tag != HR;
-        }
+    AnalyzedSentence.prototype.isNotHorizontalLine = function() {
+        return this.tag != HR;
     };
 
     // # private methods
