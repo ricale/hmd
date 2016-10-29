@@ -6,6 +6,12 @@
     "name": "ricale",
     "email": "ricale@ricalest.net"
   },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/ricale/lemon-juice/blob/master/LICENSE"
+    }
+  ],
   "engines": {
     "node": ">= 0.10.0"
   },
