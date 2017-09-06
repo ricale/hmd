@@ -1,8 +1,8 @@
 // # how to use
-// - hmd.run(sourceTextareaElement, targetElement, options)
-// - hmd.decode(string)
+// - lemonJuice.run(sourceTextareaElement, targetElement, options)
+// - lemonJuice.decode(string)
 //
-// - more information: https://github.com/ricale/hmd, http://weblog.ricalest.net/4
+// - more information: https://github.com/ricale/lemon-juice, http://weblog.ricalest.net/post/4/
 
 module.exports = (function() {
     "use strict";
