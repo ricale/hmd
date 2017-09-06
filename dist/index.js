@@ -1,21 +1,93 @@
-// # how to use
-// - hmd.run(sourceTextareaElement, targetElement, options)
-// - hmd.decode(string)
-//
-// - more information: https://github.com/ricale/hmd, http://weblog.ricalest.net/4
+/******/ (function(modules) { // webpackBootstrap
+/******/ 	// The module cache
+/******/ 	var installedModules = {};
+/******/
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
+/******/
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
+/******/
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/
+/******/
+/******/ 	// expose the modules object (__webpack_modules__)
+/******/ 	__webpack_require__.m = modules;
+/******/
+/******/ 	// expose the module cache
+/******/ 	__webpack_require__.c = installedModules;
+/******/
+/******/ 	// define getter function for harmony exports
+/******/ 	__webpack_require__.d = function(exports, name, getter) {
+/******/ 		if(!__webpack_require__.o(exports, name)) {
+/******/ 			Object.defineProperty(exports, name, {
+/******/ 				configurable: false,
+/******/ 				enumerable: true,
+/******/ 				get: getter
+/******/ 			});
+/******/ 		}
+/******/ 	};
+/******/
+/******/ 	// getDefaultExport function for compatibility with non-harmony modules
+/******/ 	__webpack_require__.n = function(module) {
+/******/ 		var getter = module && module.__esModule ?
+/******/ 			function getDefault() { return module['default']; } :
+/******/ 			function getModuleExports() { return module; };
+/******/ 		__webpack_require__.d(getter, 'a', getter);
+/******/ 		return getter;
+/******/ 	};
+/******/
+/******/ 	// Object.prototype.hasOwnProperty.call
+/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
+/******/
+/******/ 	// __webpack_public_path__
+/******/ 	__webpack_require__.p = "";
+/******/
+/******/ 	// Load entry module and return exports
+/******/ 	return __webpack_require__(__webpack_require__.s = 0);
+/******/ })
+/************************************************************************/
+/******/ ([
+/* 0 */
+/***/ (function(module, exports, __webpack_require__) {
 
-module.exports = (function() {
+"use strict";
+
+
+// # how to use
+// - lemonJuice.run(sourceTextareaElement, targetElement, options)
+// - lemonJuice.decode(string)
+//
+// - more information: https://github.com/ricale/lemon-juice, http://weblog.ricalest.net/post/4/
+
+module.exports = function () {
     "use strict";
 
     if (!Array.prototype.last) {
-        Array.prototype.last = function(){
+        Array.prototype.last = function () {
             return this[this.length - 1];
         };
     }
 
     var listLevel, listLevelInBlockquote;
     var translate;
-    var matching;
+    var _matching;
     var matchBlockquotes;
     var getIndentLevel;
     var decode;
@@ -45,180 +117,167 @@ module.exports = (function() {
     // Blockquote > Heading Underlined > HR > (UL, OL, ContinuedList) > (Codeblock, Heading, ReferencedId)
     // Blank > Codeblock
 
-    var regExpBlockquote    = /^[ ]{0,3}(>+)[ ]?([ ]*.*)$/;
-    var regExpH1Underlined  = /^=+$/;
-    var regExpH2Underlined  = /^-+$/;
-    var regExpHR            = /^[ ]{0,3}([-_*][ ]*){3,}$/;
-    var regExpUL            = /^([\s]*)[*+-][ ]+(.*)$/;
-    var regExpOL            = /^([\s]*)[\d]+\.[ ]+(.*)$/;
-    var regExpBlank         = /^[\s]*$/;
+    var regExpBlockquote = /^[ ]{0,3}(>+)[ ]?([ ]*.*)$/;
+    var regExpH1Underlined = /^=+$/;
+    var regExpH2Underlined = /^-+$/;
+    var regExpHR = /^[ ]{0,3}([-_*][ ]*){3,}$/;
+    var regExpUL = /^([\s]*)[*+-][ ]+(.*)$/;
+    var regExpOL = /^([\s]*)[\d]+\.[ ]+(.*)$/;
+    var regExpBlank = /^[\s]*$/;
     var regExpContinuedList = /^([ ]{1,8})([\s]*)(.*)/;
-    var regExpCodeblock     = /^([ ]{0,3}\t|[ ]{4})([\s]*.*)$/;
-    var regExpHeading       = /^(#{1,6}) (.*[^#])(#*)$/;
-    var regExpReferencedId = [
-        /^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/,
-        /^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/
-    ];
+    var regExpCodeblock = /^([ ]{0,3}\t|[ ]{4})([\s]*.*)$/;
+    var regExpHeading = /^(#{1,6}) (.*[^#])(#*)$/;
+    var regExpReferencedId = [/^[ ]{0,3}\[([^\]]+)\]:[\s]*<([^\s>]+)>[\s]*(?:['"(](.*)["')])?$/, /^[ ]{0,3}\[([^\]]+)\]:[\s]*([^\s]+)[\s]*(?:['"(](.*)["')])?$/];
 
     var INTERVAL_FOR_KEY_PRESS = 200;
-    var INTERVAL_FOR_UPDATE    = 1000;
+    var INTERVAL_FOR_UPDATE = 1000;
 
     //
     // # private objects
     //////////////////////
 
-    var escapeRule = (function() {
+    var escapeRule = function () {
         var regexp = /\\([\\\-\*\.\[\]\(\)_+<>#`^])/g,
             returnRegexp = /;;ESCAPE([0-9]+);;/g,
-            replacee = ['-', '_', '*', '+', '.', '<',    '>',    '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
-            result   = ['-', '_', '*', '+', '.', '&lt;', '&gt;', '#', '[', ']',  '(',  ')',  '`',  '\\',  '^'],
+            replacee = ['-', '_', '*', '+', '.', '<', '>', '#', '[', ']', '(', ')', '`', '\\', '^'],
+            result = ['-', '_', '*', '+', '.', '&lt;', '&gt;', '#', '[', ']', '(', ')', '`', '\\', '^'],
             replacer = {},
             idx;
 
-        for(idx in replacee) {
+        for (idx in replacee) {
             if (replacee.hasOwnProperty(idx)) {
                 replacer[replacee[idx]] = ';;ESCAPE' + idx + ';;';
             }
         }
 
-        return (function() {
+        return function () {
             return {
-                decode: function(string) {
-                    string = string.replace(regexp, function(match, p1) {
+                decode: function decode(string) {
+                    string = string.replace(regexp, function (match, p1) {
                         return replacer[p1];
                     });
 
                     return string;
                 },
 
-                escape: function(string) {
-                    string = string.replace(returnRegexp, function(match, p1) {
+                escape: function escape(string) {
+                    string = string.replace(returnRegexp, function (match, p1) {
                         return result[p1];
                     });
 
                     return string;
                 }
             };
-        })();
-    })();
+        }();
+    }();
 
-    var inlineRule = (function() {
+    var inlineRule = function () {
         var NORMAL = 0,
             NEED_REPLACER = 1,
             REFERENCED = 2,
-
             replacees = [],
             replacerRegexp = /;;REPLACER([0-9]+);;/g,
             reference = {},
             rules,
-
-        getReference = function(url, title) {
+            getReference = function getReference(url, title) {
             return { url: url, title: title };
         },
-
-        getRule = function(regexp, type, result, notReplaced) {
+            getRule = function getRule(regexp, type, result, notReplaced) {
             return {
                 regexp: regexp,
-                type:   type,
+                type: type,
                 result: result, // or replacee
                 notReplaced: notReplaced || null
             };
         },
-
-        replacer = function() {
+            replacer = function replacer() {
             return ';;REPLACER' + (replacees.length - 1) + ';;';
         },
-
-        getTitle = function(title) {
-            if(title === undefined) {
+            getTitle = function getTitle(title) {
+            if (title === undefined) {
                 return "";
             } else {
-                return ' title="'+title+'"';
+                return ' title="' + title + '"';
             }
         };
-
 
         // 반드시 지켜져야 할 해석 순서
         // - Strong > EM
         // - Img > Link
         // - ImgInline > LineInline
-        rules = [
-            getRule(/!\[([^\]]+)\][\s]*\[([^\]]*)\]/g,
-                    REFERENCED,
-                    function(url,alt,title) { return '<img src="'+url+'" alt="'+alt+'"'+getTitle(title)+'>'; }),
+        rules = [getRule(/!\[([^\]]+)\][\s]*\[([^\]]*)\]/g, REFERENCED, function (url, alt, title) {
+            return '<img src="' + url + '" alt="' + alt + '"' + getTitle(title) + '>';
+        }), getRule(/\[([^\]]+)\][\s]*\[([^\]]*)\]/g, REFERENCED, function (url, alt, title) {
+            return '<a href="' + url + '" alt="' + alt + '"' + getTitle(title) + '>';
+        }, function (text) {
+            return text + '</a>';
+        }), getRule(/``[\s]*(.+?)[\s]*``/g, NEED_REPLACER, function (p1) {
+            return '<code>' + p1.replace(/</g, '&lt;') + '</code>';
+        }), getRule(/`([^`]+)`/g, NEED_REPLACER, function (p1) {
+            return '<code>' + p1.replace(/</g, '&lt;') + '</code>';
+        }), getRule(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, NEED_REPLACER, function (p1, p2, p3) {
+            return '<img src="' + p2 + '"' + getTitle(p3) + '>';
+        }), getRule(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, NEED_REPLACER, function (p1, p2, p3) {
+            return '<a href="' + p2 + '"' + getTitle(p3) + '>';
+        }, function (p1) {
+            return p1 + '</a>';
+        }), getRule(/<(http[s]?:\/\/[^<]+)>/g, NEED_REPLACER, function (p1) {
+            return '<a href="' + p1 + '">' + p1 + '</a>';
+        }), getRule(/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g, NORMAL, '<strong>$1</strong>'), getRule(/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g, NORMAL, '<strong>$1</strong>'), getRule(/\*([^\*\s]{1,2}|[^\s].+?[^\s])\*/g, NORMAL, '<em>$1</em>'), getRule(/_([^_\s]{1,2}|[^\s].+?[^\s])_/g, NORMAL, '<em>$1</em>'), getRule(/(  )$/, NORMAL, '<br/>'), getRule(/<(?=[^>]*$)/g, NORMAL, '&lt;')];
 
-            getRule(/\[([^\]]+)\][\s]*\[([^\]]*)\]/g,
-                    REFERENCED,
-                    function(url,alt,title) { return '<a href="'+url+'" alt="'+alt+'"'+getTitle(title)+'>'; },
-                    function(text) { return text + '</a>'; }),
-
-            getRule(/``[\s]*(.+?)[\s]*``/g,                          NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>'; }),
-            getRule(/`([^`]+)`/g,                                    NEED_REPLACER, function(p1) { return '<code>'+p1.replace(/</g,'&lt;')+'</code>'; }),
-            getRule(/!\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g, NEED_REPLACER, function(p1,p2,p3) { return '<img src="'+p2+'"'+getTitle(p3)+'>'; }),
-            getRule(/\[([^\]]+)\][\s]*\(([^\s\)]+)(?: "(.*)")?\)/g,  NEED_REPLACER, function(p1,p2,p3) { return '<a href="'+p2+'"'+getTitle(p3)+'>'; }, function(p1) { return p1+'</a>'; }),
-            getRule(/<(http[s]?:\/\/[^<]+)>/g,                       NEED_REPLACER, function(p1) { return '<a href="'+p1+'">'+p1+'</a>'; }),
-
-            getRule(/\*\*([^\*\s]{1,2}|\*[^\*\s]|[^\*\s]\*|(?:[^\s].+?[^\s]))\*\*/g, NORMAL, '<strong>$1</strong>'),
-            getRule(/__([^_\s]{1,2}|_[^_\s]|[^_\s]_|(?:[^\s].+?[^\s]))__/g,          NORMAL, '<strong>$1</strong>'),
-            getRule(/\*([^\*\s]{1,2}|[^\s].+?[^\s])\*/g,                             NORMAL, '<em>$1</em>'),
-            getRule(/_([^_\s]{1,2}|[^\s].+?[^\s])_/g,                                NORMAL, '<em>$1</em>'),
-            getRule(/(  )$/,                                                         NORMAL, '<br/>'),
-            getRule(/<(?=[^>]*$)/g,                                                  NORMAL, '&lt;')
-        ];
-
-        return (function() {
+        return function () {
             return {
-                init: function() {
+                init: function init() {
                     replacees = [];
                     reference = {};
                 },
 
-                addRule: function(ruleArray) {
+                addRule: function addRule(ruleArray) {
                     var i;
 
-                    for(i in ruleArray) {
-                        if(ruleArray.hasOwnProperty(i)) {
+                    for (i in ruleArray) {
+                        if (ruleArray.hasOwnProperty(i)) {
                             rules[rules.length] = getRule(ruleArray[i][0], NORMAL, ruleArray[i][1]);
                         }
                     }
                 },
 
-                addReference: function(id, url, title) {
+                addReference: function addReference(id, url, title) {
                     reference[id] = getReference(url, title);
                 },
 
-                decode: function(string) {
-                    var needReplacerCallback = function(match, p1, p2, p3) {
+                decode: function decode(string) {
+                    var needReplacerCallback = function needReplacerCallback(match, p1, p2, p3) {
                         replacees[replacees.length] = rule.result(p1, p2, p3);
                         return replacer() + (rule.notReplaced !== null ? rule.notReplaced(p1) : '');
                     },
-
-                    referencedCallback = function(match, p1, p2) {
+                        referencedCallback = function referencedCallback(match, p1, p2) {
                         ref = reference[p2 || p1];
-                        if(ref === undefined) return match;
+                        if (ref === undefined) return match;
 
                         replacees[replacees.length] = rule.result(ref.url, p1, ref.title);
                         return replacer() + (rule.notReplaced !== null ? rule.notReplaced(p1) : '');
                     },
+                        idx,
+                        rule,
+                        ref;
 
-                    idx, rule, ref;
-
-                    for(idx in rules) {
-                        if(rules.hasOwnProperty(idx)) {
+                    for (idx in rules) {
+                        if (rules.hasOwnProperty(idx)) {
                             rule = rules[idx];
 
-                            switch(rule.type) {
-                            case NORMAL:
-                                string = string.replace(rule.regexp, rule.result);
-                                break;
+                            switch (rule.type) {
+                                case NORMAL:
+                                    string = string.replace(rule.regexp, rule.result);
+                                    break;
 
-                            case NEED_REPLACER:
-                                string = string.replace(rule.regexp, needReplacerCallback);
-                                break;
+                                case NEED_REPLACER:
+                                    string = string.replace(rule.regexp, needReplacerCallback);
+                                    break;
 
-                            case REFERENCED:
-                                string = string.replace(rule.regexp, referencedCallback);
-                                break;
+                                case REFERENCED:
+                                    string = string.replace(rule.regexp, referencedCallback);
+                                    break;
                             }
                         }
                     }
@@ -226,8 +285,8 @@ module.exports = (function() {
                     return string;
                 },
 
-                escape: function(string) {
-                    string = string.replace(replacerRegexp, function(match, p1) {
+                escape: function escape(string) {
+                    string = string.replace(replacerRegexp, function (match, p1) {
                         return replacees[p1];
                     });
 
@@ -236,29 +295,29 @@ module.exports = (function() {
                     return string;
                 }
             };
-        })();
-    })();
+        }();
+    }();
 
-    var analyzedSentences = (function() {
+    var analyzedSentences = function () {
         var sentences = [],
             currentIndex = null;
 
-        return (function() {
+        return function () {
             return {
-                init: function() {
+                init: function init() {
                     sentences = [];
                     currentIndex = null;
                 },
 
-                push: function(analyzedSentence) {
+                push: function push(analyzedSentence) {
                     analyzedSentence.index = sentences.length;
                     sentences.push(analyzedSentence);
                 },
 
-                setCurrentIndex: function(index) {
-                    if(index < 0) {
+                setCurrentIndex: function setCurrentIndex(index) {
+                    if (index < 0) {
                         currentIndex = null;
-                    } else if(index >= sentences.length) {
+                    } else if (index >= sentences.length) {
                         currentIndex = null;
                     } else {
                         currentIndex = index;
@@ -267,46 +326,46 @@ module.exports = (function() {
                     return currentIndex;
                 },
 
-                goNext: function() {
+                goNext: function goNext() {
                     return this.setCurrentIndex(currentIndex !== null ? currentIndex + 1 : 0);
                 },
 
-                current: function() {
+                current: function current() {
                     return sentences[currentIndex];
                 },
 
-                last: function(params) {
-                    if(params === undefined) {
+                last: function last(params) {
+                    if (params === undefined) {
                         return sentences.last();
                     } else {
                         sentences[sentences.length - 1].tag = params.tag;
                     }
                 },
 
-                get: function(index) {
+                get: function get(index) {
                     return sentences[index];
                 },
 
-                size: function() {
+                size: function size() {
                     return sentences.length;
                 },
 
-                previousLine: function(index) {
+                previousLine: function previousLine(index) {
                     index = index === undefined ? currentIndex : index;
                     return index > 1 ? sentences[index - 1] : null;
                 },
 
-                nextLine: function(index) {
+                nextLine: function nextLine(index) {
                     index = index === undefined ? currentIndex : index;
                     return index < sentences.length - 1 ? sentences[index + 1] : null;
                 },
 
-                previousBlank: function(index) {
+                previousBlank: function previousBlank(index) {
                     var i;
                     index = index === undefined ? currentIndex : index;
 
-                    for(i = index - 1; i >= 0; i--) {
-                        if(sentences[i].isBlank()) {
+                    for (i = index - 1; i >= 0; i--) {
+                        if (sentences[i].isBlank()) {
                             return sentences[i];
                         }
                     }
@@ -314,12 +373,12 @@ module.exports = (function() {
                     return null;
                 },
 
-                nextBlank: function(index) {
+                nextBlank: function nextBlank(index) {
                     var i;
                     index = index === undefined ? currentIndex : index;
 
-                    for(i = index + 1; i < sentences.length; i++) {
-                        if(sentences[i].isBlank()) {
+                    for (i = index + 1; i < sentences.length; i++) {
+                        if (sentences[i].isBlank()) {
                             return sentences[i];
                         }
                     }
@@ -327,12 +386,12 @@ module.exports = (function() {
                     return null;
                 },
 
-                previousLineExceptBlank: function(index) {
+                previousLineExceptBlank: function previousLineExceptBlank(index) {
                     var i;
                     index = index === undefined ? currentIndex : index;
 
-                    for(i = index - 1; i >= 0; i--) {
-                        if(sentences[i].isNotBlank()) {
+                    for (i = index - 1; i >= 0; i--) {
+                        if (sentences[i].isNotBlank()) {
                             return sentences[i];
                         }
                     }
@@ -340,12 +399,12 @@ module.exports = (function() {
                     return null;
                 },
 
-                nextLineExceptBlank: function(index) {
+                nextLineExceptBlank: function nextLineExceptBlank(index) {
                     var i;
                     index = index === undefined ? currentIndex : index;
 
-                    for(i = index + 1; i < sentences.length; i++) {
-                        if(sentences[i].isNotBlank()) {
+                    for (i = index + 1; i < sentences.length; i++) {
+                        if (sentences[i].isNotBlank()) {
                             return sentences[i];
                         }
                     }
@@ -353,17 +412,16 @@ module.exports = (function() {
                     return null;
                 },
 
-                previousChunk: function(index) {
+                previousChunk: function previousChunk(index) {
                     var i, endOfChunk, blank;
                     index = index === undefined ? currentIndex : index;
 
-                    for(i = index - 1; i >= 0; i--) {
-                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
+                    for (i = index - 1; i >= 0; i--) {
+                        if (sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
                             return null;
-
-                        } else if(sentences[i].isBlank()) {
+                        } else if (sentences[i].isBlank()) {
                             endOfChunk = this.previousLineExceptBlank(i);
-                            if(endOfChunk === null) {
+                            if (endOfChunk === null) {
                                 return null;
                             }
 
@@ -375,15 +433,14 @@ module.exports = (function() {
                     return null;
                 },
 
-                nextChunk: function(index) {
+                nextChunk: function nextChunk(index) {
                     var i;
                     index = index === undefined ? currentIndex : index;
 
-                    for(i = index + 1; i < sentences.length; i++) {
-                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine() || (sentences[i].isList() && sentences[i].listLevel() == this.current().listLevel())) {
+                    for (i = index + 1; i < sentences.length; i++) {
+                        if (sentences[i].isHeading() || sentences[i].isHorizontalLine() || sentences[i].isList() && sentences[i].listLevel() == this.current().listLevel()) {
                             return null;
-
-                        } else if(sentences[i].isBlank()) {
+                        } else if (sentences[i].isBlank()) {
                             return this.nextLineExceptBlank(i);
                         }
                     }
@@ -391,26 +448,23 @@ module.exports = (function() {
                     return null;
                 },
 
-                previousList: function(index) {
-                    var i, passBlankAlready = false;
+                previousList: function previousList(index) {
+                    var i,
+                        passBlankAlready = false;
                     index = index === undefined ? currentIndex : index;
 
-                    for(i = index - 1; i >= 0; i--) {
-                        if(sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
+                    for (i = index - 1; i >= 0; i--) {
+                        if (sentences[i].isHeading() || sentences[i].isHorizontalLine()) {
                             return null;
-
-                        } else if(sentences[i].isBlank()) {
-                            if(passBlankAlready) {
+                        } else if (sentences[i].isBlank()) {
+                            if (passBlankAlready) {
                                 return null;
-
                             } else {
                                 passBlankAlready = true;
                             }
-
-                        } else if(sentences[i].isNotBlank() && sentences.level === 0) {
+                        } else if (sentences[i].isNotBlank() && sentences.level === 0) {
                             return null;
-
-                        } else if(sentences[i].isList()) {
+                        } else if (sentences[i].isList()) {
                             return sentences[i];
                         }
                     }
@@ -418,286 +472,303 @@ module.exports = (function() {
                     return null;
                 }
             };
-        })();
-    })();
+        }();
+    }();
 
-    var blockElementStack = (function() {
+    var blockElementStack = function () {
         var elements = [],
             currentQuoteLevel = 0,
             currentListLevel = 0;
 
-        return (function() {
+        return function () {
             return {
-                init: function() {
+                init: function init() {
                     elements = [];
                     currentQuoteLevel = 0;
                     currentListLevel = 0;
                 },
 
-                push: function(tag, level) {
+                push: function push(tag, level) {
                     var result;
                     level = level === undefined ? 0 : level;
 
-                    result = (elements.length > 0 && (elements.last().tag == P || elements.last().tag == CODEBLOCK)) ? this.pop() : "";
+                    result = elements.length > 0 && (elements.last().tag == P || elements.last().tag == CODEBLOCK) ? this.pop() : "";
 
-                    if(tag == BLOCKQUOTE) {
+                    if (tag == BLOCKQUOTE) {
                         currentQuoteLevel += 1;
-
-                    } else if(tag == UL || tag == OL) {
+                    } else if (tag == UL || tag == OL) {
                         currentListLevel = level;
-                        if(currentListLevel !== 0) {
+                        if (currentListLevel !== 0) {
                             currentListLevel += currentQuoteLevel * 100;
                         }
                     }
 
                     elements.push({
-                        'tag':   tag,
+                        'tag': tag,
                         'level': level
                     });
 
-                    switch(tag)
-                    {
-                    case BLOCKQUOTE: return result + "<blockquote>";
-                    case UL:         return result + "<ul><li>";
-                    case OL:         return result + "<ol><li>";
-                    case P:          return result + "<p>";
-                    case H1:         return result + "<h1>";
-                    case H2:         return result + "<h2>";
-                    case H3:         return result + "<h3>";
-                    case H4:         return result + "<h4>";
-                    case H5:         return result + "<h5>";
-                    case H6:         return result + "<h6>";
-                    case CODEBLOCK:  return result + "<pre><code>";
-                    case HR:         return result + "<hr/>";
+                    switch (tag) {
+                        case BLOCKQUOTE:
+                            return result + "<blockquote>";
+                        case UL:
+                            return result + "<ul><li>";
+                        case OL:
+                            return result + "<ol><li>";
+                        case P:
+                            return result + "<p>";
+                        case H1:
+                            return result + "<h1>";
+                        case H2:
+                            return result + "<h2>";
+                        case H3:
+                            return result + "<h3>";
+                        case H4:
+                            return result + "<h4>";
+                        case H5:
+                            return result + "<h5>";
+                        case H6:
+                            return result + "<h6>";
+                        case CODEBLOCK:
+                            return result + "<pre><code>";
+                        case HR:
+                            return result + "<hr/>";
                     }
                 },
 
-                pushToQuoteLevel: function(quote) {
+                pushToQuoteLevel: function pushToQuoteLevel(quote) {
                     var result = "";
 
-                    while(quote > this.quoteLevel()) {
+                    while (quote > this.quoteLevel()) {
                         result += this.push(BLOCKQUOTE, quote);
                     }
 
                     return result;
                 },
 
-                pop: function() {
+                pop: function pop() {
                     var i, last, element;
 
-                    if(elements.length > 0) {
+                    if (elements.length > 0) {
                         last = elements.last();
-                        if(last.tag == BLOCKQUOTE) {
+                        if (last.tag == BLOCKQUOTE) {
                             currentQuoteLevel -= 1;
-
-                        } else if(last.tag == UL || last.tag == OL) {
+                        } else if (last.tag == UL || last.tag == OL) {
                             currentListLevel = 0;
-                            for(i = elements.length - 2; i >= 0; i--) {
-                                if(elements[i].tag != BLOCKQUOTE) {
+                            for (i = elements.length - 2; i >= 0; i--) {
+                                if (elements[i].tag != BLOCKQUOTE) {
                                     currentListLevel = elements[i].level;
                                     break;
                                 }
                             }
 
-                            if(currentListLevel !== 0) {
+                            if (currentListLevel !== 0) {
                                 currentListLevel += currentQuoteLevel * 100;
                             }
-
                         }
                     }
 
                     element = elements.pop();
 
-                    switch(element.tag)
-                    {
-                    case BLOCKQUOTE: return "</blockquote>";
-                    case UL:         return "</li></ul>";
-                    case OL:         return "</li></ol>";
-                    case P:          return "</p>";
-                    case H1:         return "</h1>";
-                    case H2:         return "</h2>";
-                    case H3:         return "</h3>";
-                    case H4:         return "</h4>";
-                    case H5:         return "</h5>";
-                    case H6:         return "</h6>";
-                    case CODEBLOCK:  return "</code></pre>";
-                    case HR:         return "";
+                    switch (element.tag) {
+                        case BLOCKQUOTE:
+                            return "</blockquote>";
+                        case UL:
+                            return "</li></ul>";
+                        case OL:
+                            return "</li></ol>";
+                        case P:
+                            return "</p>";
+                        case H1:
+                            return "</h1>";
+                        case H2:
+                            return "</h2>";
+                        case H3:
+                            return "</h3>";
+                        case H4:
+                            return "</h4>";
+                        case H5:
+                            return "</h5>";
+                        case H6:
+                            return "</h6>";
+                        case CODEBLOCK:
+                            return "</code></pre>";
+                        case HR:
+                            return "";
                     }
                 },
 
-                popToQuoteLevel: function(quote) {
+                popToQuoteLevel: function popToQuoteLevel(quote) {
                     var result = "";
 
-                    while(quote < this.quoteLevel()) {
+                    while (quote < this.quoteLevel()) {
                         result += this.pop();
                     }
 
                     return result;
                 },
 
-                popToListLevel: function(listLv) {
+                popToListLevel: function popToListLevel(listLv) {
                     var result = "";
 
-                    while(this.isNotEmpty() && this.lastIsNotBlockquote() && listLv < this.listLevel()) {
+                    while (this.isNotEmpty() && this.lastIsNotBlockquote() && listLv < this.listLevel()) {
                         result += this.pop();
                     }
 
                     return result;
                 },
 
-                popToBlockquote: function() {
+                popToBlockquote: function popToBlockquote() {
                     var result = "";
 
-                    while(this.isNotEmpty() && this.lastIsNotBlockquote()) {
+                    while (this.isNotEmpty() && this.lastIsNotBlockquote()) {
                         result += this.pop();
                     }
 
                     return result;
                 },
 
-                last: function() {
+                last: function last() {
                     return elements.last();
                 },
 
-                listLevel: function() {
+                listLevel: function listLevel() {
                     return currentListLevel;
                 },
 
-                quoteLevel: function() {
+                quoteLevel: function quoteLevel() {
                     return currentQuoteLevel;
                 },
 
-                isEmpty: function() {
+                isEmpty: function isEmpty() {
                     return elements.length === 0;
                 },
 
-                isNotEmpty: function() {
+                isNotEmpty: function isNotEmpty() {
                     return elements.length !== 0;
                 },
 
-                lastIsBlockquote: function() {
+                lastIsBlockquote: function lastIsBlockquote() {
                     var last = elements.last();
                     return last && last.tag == BLOCKQUOTE;
                 },
 
-                lastIsNotBlockquote: function() {
+                lastIsNotBlockquote: function lastIsNotBlockquote() {
                     var last = elements.last();
                     return !last || last.tag != BLOCKQUOTE;
                 },
 
-                lastIsParagraph: function() {
+                lastIsParagraph: function lastIsParagraph() {
                     var last = elements.last();
                     return last && last.tag == P;
                 },
 
-                lastIsNotParagraph: function() {
+                lastIsNotParagraph: function lastIsNotParagraph() {
                     var last = elements.last();
                     return !last || last.tag != P;
                 },
 
-                lastIsList: function() {
+                lastIsList: function lastIsList() {
                     var last = elements.last();
                     return last && (last.tag == UL || last.tag == OL);
                 },
 
-                lastIsNotList: function() {
+                lastIsNotList: function lastIsNotList() {
                     var last = elements.last();
-                    return !last || (last.tag != UL && last.tag != OL);
+                    return !last || last.tag != UL && last.tag != OL;
                 },
 
-                lastIsCodeblock: function() {
+                lastIsCodeblock: function lastIsCodeblock() {
                     var last = elements.last();
                     return last && last.tag == CODEBLOCK;
                 },
 
-                lastIsNotCodeblock: function() {
+                lastIsNotCodeblock: function lastIsNotCodeblock() {
                     var last = elements.last();
                     return !last || last.tag != CODEBLOCK;
                 },
 
-                size: function() {
+                size: function size() {
                     return elements.length;
                 },
 
-                stack: function() {
+                stack: function stack() {
                     return elements;
                 }
             };
-        })();
-    })();
+        }();
+    }();
 
     //
     // # Indent Helper: temporary included external library
     ////////////////////
 
-    var IndentHelper = (function () {
-        var indent = function(textarea, isReversed) {
+    var IndentHelper = function () {
+        var indent = function indent(textarea, isReversed) {
             //////////
             // variable for indent function scope
             var tabCharacter = '    ',
                 source,
 
+
             //////////
             // private getter
-            getSourceInformation = function(textarea) {
-                var content        = textarea.value,
+            getSourceInformation = function getSourceInformation(textarea) {
+                var content = textarea.value,
                     selectionStart = textarea.selectionStart,
-                    selectionEnd   = textarea.selectionEnd,
+                    selectionEnd = textarea.selectionEnd,
                     selectedString = content.substring(selectionStart, selectionEnd);
 
                 return {
-                    element:         textarea,
-                    content:         content,
-                    selectionStart:  selectionStart,
-                    selectionEnd:    selectionEnd,
+                    element: textarea,
+                    content: content,
+                    selectionStart: selectionStart,
+                    selectionEnd: selectionEnd,
                     selectionString: selectedString
                 };
             },
-
-            getReplaceeInformation = function() {
-                var start   = source.content.lastIndexOf('\n', source.selectionStart - 1),
-                    end     = source.content.indexOf('\n', source.selectionEnd),
+                getReplaceeInformation = function getReplaceeInformation() {
+                var start = source.content.lastIndexOf('\n', source.selectionStart - 1),
+                    end = source.content.indexOf('\n', source.selectionEnd),
                     content;
 
-                end     = end == -1 ? source.content.length - 1 : end;
+                end = end == -1 ? source.content.length - 1 : end;
                 content = source.content.substring(start, end);
 
                 return {
-                    start:   start,
-                    end:     end,
+                    start: start,
+                    end: end,
                     content: content
                 };
             },
 
+
             //////////
             // helper
-            replaceString = function(start, end, indentedString) {
+            replaceString = function replaceString(start, end, indentedString) {
                 source.element.value = source.content.substring(0, start) + indentedString + source.content.substring(end, source.content.length);
             },
-
-            setTextareaSelection = function(replaceStart, selectionStart, selectionEnd) {
+                setTextareaSelection = function setTextareaSelection(replaceStart, selectionStart, selectionEnd) {
                 source.element.selectionStart = selectionStart;
-                if(source.element.selectionStart < replaceStart + 1)
-                    source.element.selectionStart = replaceStart + 1;
+                if (source.element.selectionStart < replaceStart + 1) source.element.selectionStart = replaceStart + 1;
 
-                if(selectionEnd < source.element.selectionStart)
-                    selectionEnd = source.element.selectionStart;
+                if (selectionEnd < source.element.selectionStart) selectionEnd = source.element.selectionStart;
                 source.element.selectionEnd = selectionEnd;
             },
 
+
             //////////
             // indent or unindent functions
-            indentSelectedLine = function() {
+            indentSelectedLine = function indentSelectedLine() {
                 replaceString(source.selectionStart, source.selectionEnd, tabCharacter);
                 setTextareaSelection(-1, source.selectionStart + tabCharacter.length, source.selectionStart + tabCharacter.length);
             },
-
-            unindentSelectedLine = function() {
+                unindentSelectedLine = function unindentSelectedLine() {
                 var removedTabCharacterLength,
                     replacee = getReplaceeInformation(),
-                    replacedRegExp       = /(^|\n)([ ]{1,4})/;
+                    replacedRegExp = /(^|\n)([ ]{1,4})/;
 
-                if(replacee.content.match(replacedRegExp) === null) {
+                if (replacee.content.match(replacedRegExp) === null) {
                     removedTabCharacterLength = 0;
                 } else {
                     removedTabCharacterLength = replacee.content.match(replacedRegExp)[2].length;
@@ -706,38 +777,36 @@ module.exports = (function() {
                 replaceString(replacee.start, replacee.end, replacee.content.replace(replacedRegExp, '$1'));
                 setTextareaSelection(replacee.start, source.selectionStart - removedTabCharacterLength, source.selectionStart - removedTabCharacterLength);
             },
-
-            indentSelectedLines = function() {
+                indentSelectedLines = function indentSelectedLines() {
                 var replacee = getReplaceeInformation(),
-                    replacedRegExp       = /(^|\n)(?!\n)/g;
+                    replacedRegExp = /(^|\n)(?!\n)/g;
 
-                replaceString(replacee.start, replacee.end, replacee.content.replace(replacedRegExp, "$1"+tabCharacter));
-                setTextareaSelection(replacee.start, source.selectionStart + tabCharacter.length, source.selectionEnd + (tabCharacter.length * source.selectionString.match(replacedRegExp).length));
+                replaceString(replacee.start, replacee.end, replacee.content.replace(replacedRegExp, "$1" + tabCharacter));
+                setTextareaSelection(replacee.start, source.selectionStart + tabCharacter.length, source.selectionEnd + tabCharacter.length * source.selectionString.match(replacedRegExp).length);
             },
-
-            unindentSelectedLines = function() {
+                unindentSelectedLines = function unindentSelectedLines() {
                 var replacee = getReplaceeInformation(),
-                    replacedRegExp       = /(^|\n)([ ]{1,4})/g,
-                    removedTabs          = replacee.content.match(replacedRegExp),
+                    replacedRegExp = /(^|\n)([ ]{1,4})/g,
+                    removedTabs = replacee.content.match(replacedRegExp),
                     removedTabCharacterLength = 0,
-                    firstTabLength            = 0,
+                    firstTabLength = 0,
                     lastMatchOfSelectedString,
                     index,
                     value;
 
-                if(removedTabs !== null) {
+                if (removedTabs !== null) {
                     lastMatchOfSelectedString = source.selectionString.match('\n[ ]{0,3}$');
 
-                    for(index = 0; index < removedTabs.length; index++) {
+                    for (index = 0; index < removedTabs.length; index++) {
                         value = removedTabs[index];
-                        if(index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
-                            removedTabCharacterLength += (value.match(/[ ]+/)[0].length);
+                        if (index != removedTabs.length - 1 || !lastMatchOfSelectedString) {
+                            removedTabCharacterLength += value.match(/[ ]+/)[0].length;
                         } else {
                             removedTabCharacterLength += lastMatchOfSelectedString[0].length - 1;
                         }
                     }
 
-                    if(source.content.substring(replacee.start, source.selectionStart).match(replacedRegExp) !== null) {
+                    if (source.content.substring(replacee.start, source.selectionStart).match(replacedRegExp) !== null) {
                         firstTabLength = removedTabs[0].match(/[ ]+/)[0].length;
                     }
                 }
@@ -746,9 +815,7 @@ module.exports = (function() {
                 setTextareaSelection(replacee.start, source.selectionStart - firstTabLength, source.selectionEnd - removedTabCharacterLength);
             };
 
-
-
-            if(document.selection) {
+            if (document.selection) {
                 ////////////
                 // for IE //
                 ////////////
@@ -756,17 +823,10 @@ module.exports = (function() {
             } else {
                 source = getSourceInformation(textarea);
 
-                if(source.selectionString.match(/\n/) === null) {
-                    if(isReversed)
-                        unindentSelectedLine();
-                    else
-                        indentSelectedLine();
-
+                if (source.selectionString.match(/\n/) === null) {
+                    if (isReversed) unindentSelectedLine();else indentSelectedLine();
                 } else {
-                    if(isReversed)
-                        unindentSelectedLines();
-                    else
-                        indentSelectedLines();
+                    if (isReversed) unindentSelectedLines();else indentSelectedLines();
                 }
             }
         };
@@ -774,32 +834,31 @@ module.exports = (function() {
         return {
             indent: indent,
 
-            eventListener: function (event) {
-                if(event !== undefined && event.keyCode == 9) {
+            eventListener: function eventListener(event) {
+                if (event !== undefined && event.keyCode == 9) {
                     event.preventDefault();
                     indent(this, event.shiftKey);
                 }
             },
 
-            addEventListener: function(targetElement, eventName) {
-                eventName = (eventName || 'keydown');
+            addEventListener: function addEventListener(targetElement, eventName) {
+                eventName = eventName || 'keydown';
 
-                if(targetElement.addEventListener) {
+                if (targetElement.addEventListener) {
                     targetElement.addEventListener(eventName, this.eventListener, false);
-                } else if(targetElement.attachEvent) {
-                    targetElement.attachEvent("on"+eventName, this.eventListener);
+                } else if (targetElement.attachEvent) {
+                    targetElement.attachEvent("on" + eventName, this.eventListener);
                 } else {
                     targetElement[eventName] = this.eventListener;
                 }
             }
         };
-    })();
-
+    }();
 
     // # private inner classes
     ////////////////////
 
-    var AnalyzedSentence = function() {
+    var AnalyzedSentence = function AnalyzedSentence() {
         this.index = null;
         // 이 문장의 실제 내용 (string)
         this.content = null;
@@ -811,91 +870,83 @@ module.exports = (function() {
         this.quote = 0;
     };
 
-    AnalyzedSentence.prototype.listLevel = function() {
+    AnalyzedSentence.prototype.listLevel = function () {
         return this.level === 0 ? 0 : this.level + this.quote * 100;
     };
 
-    AnalyzedSentence.prototype.isParagraph = function() {
+    AnalyzedSentence.prototype.isParagraph = function () {
         return this.tag == P;
     };
 
-    AnalyzedSentence.prototype.isUnorderedList = function() {
+    AnalyzedSentence.prototype.isUnorderedList = function () {
         return this.tag == UL;
     };
 
-    AnalyzedSentence.prototype.isOrderedList = function() {
+    AnalyzedSentence.prototype.isOrderedList = function () {
         return this.tag == OL;
     };
 
-    AnalyzedSentence.prototype.isList = function() {
+    AnalyzedSentence.prototype.isList = function () {
         return this.isUnorderedList() || this.isOrderedList();
     };
 
-    AnalyzedSentence.prototype.isBlank = function() {
+    AnalyzedSentence.prototype.isBlank = function () {
         return this.tag == BLANK;
     };
 
-    AnalyzedSentence.prototype.isCodeblock = function() {
+    AnalyzedSentence.prototype.isCodeblock = function () {
         return this.tag == CODEBLOCK;
     };
 
-    AnalyzedSentence.prototype.isHeading = function() {
-        return (this.tag == H1 ||
-                this.tag == H2 ||
-                this.tag == H3 ||
-                this.tag == H4 ||
-                this.tag == H5 ||
-                this.tag == H6);
+    AnalyzedSentence.prototype.isHeading = function () {
+        return this.tag == H1 || this.tag == H2 || this.tag == H3 || this.tag == H4 || this.tag == H5 || this.tag == H6;
     };
 
-    AnalyzedSentence.prototype.isHorizontalLine = function() {
+    AnalyzedSentence.prototype.isHorizontalLine = function () {
         return this.tag == HR;
     };
 
-    AnalyzedSentence.prototype.isNotParagraph = function() {
+    AnalyzedSentence.prototype.isNotParagraph = function () {
         return this.tag != P;
     };
 
-    AnalyzedSentence.prototype.isNotUnorderedList = function() {
+    AnalyzedSentence.prototype.isNotUnorderedList = function () {
         return this.tag != UL;
     };
 
-    AnalyzedSentence.prototype.isNotOrderedList = function() {
+    AnalyzedSentence.prototype.isNotOrderedList = function () {
         return this.tag != OL;
     };
 
-    AnalyzedSentence.prototype.isNotList = function() {
+    AnalyzedSentence.prototype.isNotList = function () {
         return this.isNotUnorderedList() && this.isNotOrderedList();
     };
 
-    AnalyzedSentence.prototype.isNotBlank = function() {
+    AnalyzedSentence.prototype.isNotBlank = function () {
         return this.tag != BLANK;
     };
 
-    AnalyzedSentence.prototype.isNotCodeblock = function() {
+    AnalyzedSentence.prototype.isNotCodeblock = function () {
         return this.tag != CODEBLOCK;
     };
 
-    AnalyzedSentence.prototype.isNotHeading = function() {
-        return (this.tag != H1 &&
-                this.tag != H2 &&
-                this.tag != H3 &&
-                this.tag != H4 &&
-                this.tag != H5 &&
-                this.tag != H6);
+    AnalyzedSentence.prototype.isNotHeading = function () {
+        return this.tag != H1 && this.tag != H2 && this.tag != H3 && this.tag != H4 && this.tag != H5 && this.tag != H6;
     };
 
-    AnalyzedSentence.prototype.isNotHorizontalLine = function() {
+    AnalyzedSentence.prototype.isNotHorizontalLine = function () {
         return this.tag != HR;
     };
 
     // # private methods
     ////////////////////
 
-    translate = function(sourceString) {
-        var array = sourceString.split(/\n/), i, r, self,
-
-        initAll = function() {
+    translate = function translate(sourceString) {
+        var array = sourceString.split(/\n/),
+            i,
+            r,
+            self,
+            initAll = function initAll() {
             inlineRule.init();
 
             listLevel = [];
@@ -904,18 +955,16 @@ module.exports = (function() {
             analyzedSentences.init();
             blockElementStack.init();
         },
-
-        isEndOfList = function(result) {
+            isEndOfList = function isEndOfList(result) {
             return result.isNotBlank() && result.level === 0;
         },
-
-        cleanListInformation = function() {
-            if(listLevel.length > 0) {
+            cleanListInformation = function cleanListInformation() {
+            if (listLevel.length > 0) {
                 listLevel = [];
                 listLevelInBlockquote = [];
             }
 
-            if(listLevelInBlockquote.length > 0) {
+            if (listLevelInBlockquote.length > 0) {
                 listLevelInBlockquote = [];
             }
         };
@@ -924,11 +973,11 @@ module.exports = (function() {
 
         initAll();
 
-        for(i = 0; i < array.length; i++) {
-            if((r = matching(array[i])) !== null) {
+        for (i = 0; i < array.length; i++) {
+            if ((r = _matching(array[i])) !== null) {
                 analyzedSentences.push(r);
 
-                if(isEndOfList(r)) {
+                if (isEndOfList(r)) {
                     cleanListInformation();
                 }
             }
@@ -937,87 +986,87 @@ module.exports = (function() {
         return decode();
     };
 
-    
-    matching = function(string) {
-        var sentence = matchBlockquotes(string), line = null, result,
-
-        isBlank = function() {
+    _matching = function matching(string) {
+        var sentence = matchBlockquotes(string),
+            line = null,
+            result,
+            isBlank = function isBlank() {
             return sentence.content.match(regExpBlank) !== null;
         },
-
-        isUnderlineForH1 = function() {
+            isUnderlineForH1 = function isUnderlineForH1() {
             return sentence.content.match(regExpH1Underlined) !== null && analyzedSentences.size() !== 0 && analyzedSentences.last().isParagraph();
         },
-
-        isUnderlineForH2 = function() {
+            isUnderlineForH2 = function isUnderlineForH2() {
             return sentence.content.match(regExpH2Underlined) !== null && analyzedSentences.size() !== 0 && analyzedSentences.last().isParagraph();
         },
-
-        isHR = function() {
+            isHR = function isHR() {
             return sentence.content.match(regExpHR) !== null;
         },
+            matchWithListForm = function matchWithListForm(tag, regExpTag) {
 
-        matchWithListForm = function(tag, regExpTag) {
+            var line,
+                isLine,
+                isThisReallyListElement = function isThisReallyListElement(line) {
 
-            var line, isLine,
-
-            isThisReallyListElement = function(line) {
-
-                var getListLevel = function(blank, isInBq) {
+                var getListLevel = function getListLevel(blank, isInBq) {
                     // 이 줄의 들여쓰기가 몇 개의 공백으로 이루어져있는지 확인한다.
                     var space = getIndentLevel(blank),
                         result = new AnalyzedSentence(),
                         levels = isInBq ? listLevelInBlockquote : listLevel,
-                        now, exist, i,
+                        now,
+                        exist,
+                        i,
+                        noListBefore = function noListBefore() {
+                        return levels.length === 0;
+                    },
+                        existListWithOnlyOneLevel = function existListWithOnlyOneLevel() {
+                        return levels.length == 1;
+                    },
+                        indentIsSameAsFirstLevelOfList = function indentIsSameAsFirstLevelOfList() {
+                        return space == levels[0];
+                    },
+                        isParagraphContinuedFromPrevListItem = function isParagraphContinuedFromPrevListItem() {
+                        return space >= (now + 1) * 4;
+                    },
+                        isNextLevelOfPrevListItem = function isNextLevelOfPrevListItem() {
+                        return space > levels[now - 1] && space > (now - 1) * 4;
+                    },
+                        isSameLevelOfPrevListItem = function isSameLevelOfPrevListItem() {
+                        return space >= levels[now - 1];
+                    };
 
-                    noListBefore                         = function() { return levels.length === 0; },
-                    existListWithOnlyOneLevel            = function() { return levels.length == 1; },
-                    indentIsSameAsFirstLevelOfList       = function() { return space == levels[0]; },
-                    isParagraphContinuedFromPrevListItem = function() { return space >= (now + 1) * 4; },
-                    isNextLevelOfPrevListItem            = function() { return space > levels[now - 1] && space > (now - 1) * 4; },
-                    isSameLevelOfPrevListItem            = function() { return space >= levels[now - 1]; };
-
-                    if(noListBefore()) {
-                        if(space <= 3) {
+                    if (noListBefore()) {
+                        if (space <= 3) {
                             levels[0] = space;
                             result.level = 1;
-
                         } else {
                             result.tag = CODEBLOCK;
                         }
-
-
-                    } else if(existListWithOnlyOneLevel()) {
-                        if(indentIsSameAsFirstLevelOfList()) {
+                    } else if (existListWithOnlyOneLevel()) {
+                        if (indentIsSameAsFirstLevelOfList()) {
                             result.level = 1;
-
-                        } else if(space <= 7) {
+                        } else if (space <= 7) {
                             levels[1] = space;
                             result.level = 2;
-
                         } else {
                             result.tag = CODEBLOCK;
                         }
-
                     } else {
                         now = levels.length;
 
-                        if(isParagraphContinuedFromPrevListItem()) {
+                        if (isParagraphContinuedFromPrevListItem()) {
                             result.tag = P;
                             result.level = now;
-
-                        } else if(isNextLevelOfPrevListItem()) {
+                        } else if (isNextLevelOfPrevListItem()) {
                             levels[now] = space;
 
                             result.level = now + 1;
-
-                        } else if(isSameLevelOfPrevListItem()) {
+                        } else if (isSameLevelOfPrevListItem()) {
                             result.level = now;
-
                         } else {
                             exist = false;
-                            for(i = now - 2; i >= 0 ; i--) {
-                                if(space >= levels[i]) {
+                            for (i = now - 2; i >= 0; i--) {
+                                if (space >= levels[i]) {
                                     levels = levels.slice(0, i + 1);
 
                                     result.level = i + 1;
@@ -1026,17 +1075,16 @@ module.exports = (function() {
                                 }
                             }
 
-                            if(!exist) {
+                            if (!exist) {
                                 result.tag = P;
                                 result.level = now;
                             }
                         }
                     }
 
-                    if(isInBq) {
+                    if (isInBq) {
                         result.level += listLevel.length;
                         listLevelInBlockquote = levels;
-                        
                     } else {
                         listLevel = levels;
                     }
@@ -1044,26 +1092,25 @@ module.exports = (function() {
                     levels = null;
 
                     return result;
-                }, // getListLevel
+                },
+                    // getListLevel
 
                 r = getListLevel(line[1], sentence.quote !== 0);
 
-                if(r.isNotCodeblock()) {
-                    sentence.tag   = r.tag !== null ? r.tag : tag;
+                if (r.isNotCodeblock()) {
+                    sentence.tag = r.tag !== null ? r.tag : tag;
                     sentence.level = r.level;
                     sentence.content = line[2];
                     return sentence;
-
                 } else {
                     return false;
                 }
             }; // isThisReallyListElement
 
 
-            if((line = sentence.content.match(regExpTag))) {
-                if((isLine = isThisReallyListElement(line)) !== false) {
+            if (line = sentence.content.match(regExpTag)) {
+                if ((isLine = isThisReallyListElement(line)) !== false) {
                     return isLine;
-
                 } else {
                     return matchCodeblock(sentence);
                 }
@@ -1071,38 +1118,33 @@ module.exports = (function() {
 
             return null;
         },
-
-        matchWithULForm = function() {
+            matchWithULForm = function matchWithULForm() {
             return matchWithListForm(UL, regExpUL, sentence);
-            
         },
-
-        matchWithOLForm = function() {
+            matchWithOLForm = function matchWithOLForm() {
             return matchWithListForm(OL, regExpOL, sentence);
         },
-
-        matchContinuedList = function(string, last) {
-            var previousLineIsList = function() { // 바로 윗 줄이 리스트인가
+            matchContinuedList = function matchContinuedList(string, last) {
+            var previousLineIsList = function previousLineIsList() {
+                // 바로 윗 줄이 리스트인가
                 return prev !== null && prev.level !== 0;
             },
-
-            isCodeblock = function() {
+                isCodeblock = function isCodeblock() {
                 return line !== null && prev.isCodeblock() && getIndentLevel(line[1]) == 8 && (prev.level - 1) * 4 <= getIndentLevel(line[2]);
             },
-
-            listIsContinuedNow = function() { // 공백이 아닌 문장 중 가장 최근의 문장이 리스트인가
+                listIsContinuedNow = function listIsContinuedNow() {
+                // 공백이 아닌 문장 중 가장 최근의 문장이 리스트인가
                 return above !== null && above.level !== 0;
             },
+                result = new AnalyzedSentence(),
+                above = analyzedSentences.previousLineExceptBlank(analyzedSentences.size()),
+                prev = analyzedSentences.previousLine(analyzedSentences.size()),
+                line = string.match(regExpContinuedList),
+                indent;
 
-            result = new AnalyzedSentence(),
-            above = analyzedSentences.previousLineExceptBlank(analyzedSentences.size()),
-            prev = analyzedSentences.previousLine(analyzedSentences.size()),
-            line = string.match(regExpContinuedList),
-            indent;
+            if (previousLineIsList()) {
 
-            if(previousLineIsList()) {
-
-                if(isCodeblock()) {
+                if (isCodeblock()) {
                     result.tag = CODEBLOCK;
                     result.content = line[2].slice((prev.level - 1) * 4) + line[3];
                     result.level = prev.level;
@@ -1125,22 +1167,22 @@ module.exports = (function() {
                 //   a. 목록 요소 내부의 코드 블록이거나
                 //   b. 목록 요소 내부의 인용 블록이거나
                 //   c. 목록 요소 내부의 문단 요소이다.
-            } else if(listIsContinuedNow()) {
+            } else if (listIsContinuedNow()) {
 
-                if(line === null) {
+                if (line === null) {
                     result = matchBlockquotes(string);
-                    if(result.quote == above.quote) {
+                    if (result.quote == above.quote) {
                         line = result.content.match(regExpContinuedList);
 
-                        if(line === null) {
+                        if (line === null) {
                             return null;
                         }
                     } else {
                         above = analyzedSentences.previousList(analyzedSentences.size());
-                        if(above && result.quote == above.quote) {
+                        if (above && result.quote == above.quote) {
                             line = result.content.match(regExpContinuedList);
 
-                            if(line === null) {
+                            if (line === null) {
                                 return null;
                             }
                         } else {
@@ -1150,8 +1192,8 @@ module.exports = (function() {
                 }
 
                 // a
-                if(getIndentLevel(line[1]) == 8) {
-                    if((above.level - 1) * 4 <= getIndentLevel(line[2])) {
+                if (getIndentLevel(line[1]) == 8) {
+                    if ((above.level - 1) * 4 <= getIndentLevel(line[2])) {
                         result.tag = CODEBLOCK;
                         result.content = line[2].slice((above.level - 1) * 4) + line[3];
                         result.level = above.level;
@@ -1162,9 +1204,8 @@ module.exports = (function() {
                 }
 
                 // b 혹은 c
-                result = matching(line[3]);
-                if(result === null) 
-                    return null;
+                result = _matching(line[3]);
+                if (result === null) return null;
 
                 indent = getIndentLevel(line[1] + line[2]);
                 indent = indent / 4 - indent / 4 % 1 + (indent % 4 !== 0);
@@ -1178,20 +1219,25 @@ module.exports = (function() {
             // 위의 어떠한 사항에도 해당하지 않는다면 이 줄은 목록 요소 내부의 블록 요소가 아니다.
             return null;
         },
-
-        matchHeading = function() {
+            matchHeading = function matchHeading() {
             var line, headingLevel;
 
-            if((line = sentence.content.match(regExpHeading))) {
+            if (line = sentence.content.match(regExpHeading)) {
                 headingLevel = line[1].length;
 
-                switch(headingLevel) {
-                    case 1: sentence.tag = H1; break;
-                    case 2: sentence.tag = H2; break;
-                    case 3: sentence.tag = H3; break;
-                    case 4: sentence.tag = H4; break;
-                    case 5: sentence.tag = H5; break;
-                    case 6: sentence.tag = H6; break;
+                switch (headingLevel) {
+                    case 1:
+                        sentence.tag = H1;break;
+                    case 2:
+                        sentence.tag = H2;break;
+                    case 3:
+                        sentence.tag = H3;break;
+                    case 4:
+                        sentence.tag = H4;break;
+                    case 5:
+                        sentence.tag = H5;break;
+                    case 6:
+                        sentence.tag = H6;break;
                 }
 
                 sentence.content = line[2];
@@ -1200,11 +1246,10 @@ module.exports = (function() {
 
             return null;
         },
-
-        matchReference = function() {
+            matchReference = function matchReference() {
             var line;
 
-            if((line = sentence.content.match(regExpReferencedId[0])) === null) {
+            if ((line = sentence.content.match(regExpReferencedId[0])) === null) {
                 line = sentence.content.match(regExpReferencedId[1]);
 
                 return line;
@@ -1212,86 +1257,78 @@ module.exports = (function() {
 
             return line;
         },
-
-        matchCodeblock = function() {
-            if((line = sentence.content.match(regExpCodeblock))) {
-                sentence.tag     = CODEBLOCK;
+            matchCodeblock = function matchCodeblock() {
+            if (line = sentence.content.match(regExpCodeblock)) {
+                sentence.tag = CODEBLOCK;
                 sentence.content = line[2];
                 return sentence;
             }
 
             return null;
         },
-
-        setBlankSentence = function() {
-            sentence.tag     = BLANK;
+            setBlankSentence = function setBlankSentence() {
+            sentence.tag = BLANK;
             sentence.content = "";
             return sentence;
         },
-
-        setPrevLineAsH1 = function() {
-            analyzedSentences.last({'tag': H1});
+            setPrevLineAsH1 = function setPrevLineAsH1() {
+            analyzedSentences.last({ 'tag': H1 });
             return null;
         },
-
-        setPrevLineAsH2 = function() {
-            analyzedSentences.last({'tag': H2});
+            setPrevLineAsH2 = function setPrevLineAsH2() {
+            analyzedSentences.last({ 'tag': H2 });
             return null;
         },
-
-        setHRSentence = function() {
-            sentence.tag     = HR;
+            setHRSentence = function setHRSentence() {
+            sentence.tag = HR;
             sentence.content = "";
             return sentence;
         },
-
-        setReference = function() {
+            setReference = function setReference() {
             inlineRule.addReference(result[1], result[2], result[3]);
             return null;
         },
-
-        setParagraph = function() {
+            setParagraph = function setParagraph() {
             sentence.tag = P;
             return sentence;
         };
 
-        if(isBlank()) return setBlankSentence();
+        if (isBlank()) return setBlankSentence();
 
-        if(isUnderlineForH1()) return setPrevLineAsH1(); // return null
+        if (isUnderlineForH1()) return setPrevLineAsH1(); // return null
 
-        if(isUnderlineForH2()) return setPrevLineAsH2(); // return null
+        if (isUnderlineForH2()) return setPrevLineAsH2(); // return null
 
-        if(isHR()) return setHRSentence();
+        if (isHR()) return setHRSentence();
 
-        if((result = matchWithULForm())) return result;
+        if (result = matchWithULForm()) return result;
 
-        if((result = matchWithOLForm())) return result;
+        if (result = matchWithOLForm()) return result;
 
-        if((result = matchContinuedList(string, sentence))) return result;
+        if (result = matchContinuedList(string, sentence)) return result;
 
-        if((result = matchHeading())) return result;
+        if (result = matchHeading()) return result;
 
-        if((result = matchReference())) return setReference(); // return null
+        if (result = matchReference()) return setReference(); // return null
 
-        if((result = matchCodeblock())) return result;
+        if (result = matchCodeblock()) return result;
 
         return setParagraph();
-
     }; // matching
 
     // 이 줄(string)이 인용 요소에 포함된 줄인지,
     // 포함되어 있다면 인용 요소가 몇 번이나 중첩되어 있는지 확인한다.
     // 인용 블록 요소 확인 결과가 담긴 AnalyzedSentence 객체를 반환한다.
-    matchBlockquotes = function(string) {
+    matchBlockquotes = function matchBlockquotes(string) {
         var result = new AnalyzedSentence(),
             line = null;
 
         result.content = string;
 
-        while(true) {
+        while (true) {
             line = result.content.match(regExpBlockquote);
 
-            if(line === null) return result;
+            if (line === null) return result;
 
             result.quote += line[1].length;
             result.content = line[2];
@@ -1300,13 +1337,14 @@ module.exports = (function() {
 
     // 들여쓰기(blank)가 몇 개의 공백(space)인지 확인해 결과를 반환한다.
     // 탭(tab) 문자는 4개의 공백으로 계산한다.
-    getIndentLevel = function(blank) {
+    getIndentLevel = function getIndentLevel(blank) {
         var indent = blank.match(/([ ]{0,3}\t|[ ]{4}|[ ]{1,3})/g),
-            space = 0, i;
+            space = 0,
+            i;
 
-        if(indent !== null) {
-            for(i = 0; i < indent.length; i++) {
-                if(indent[i].match(/^[ ]{1,3}$/) !== null) {
+        if (indent !== null) {
+            for (i = 0; i < indent.length; i++) {
+                if (indent[i].match(/^[ ]{1,3}$/) !== null) {
                     space += indent[i].length;
                 } else {
                     space += 4;
@@ -1320,119 +1358,109 @@ module.exports = (function() {
     // 해석한 줄들을 전체적으로 확인해 번역한다.
     // this.translate에서 바로 하지 않는 이유는
     // 전후 줄의 상태에 따라 번역이 달라질 수 있기 때문이다.
-    decode = function() {
-        var closeBlockElementsIfNeeded = function() {
+    decode = function decode() {
+        var closeBlockElementsIfNeeded = function closeBlockElementsIfNeeded() {
             var below = analyzedSentences.nextLineExceptBlank();
 
-            if(current.isNotParagraph() && blockElementStack.lastIsParagraph()) {
+            if (current.isNotParagraph() && blockElementStack.lastIsParagraph()) {
                 string += blockElementStack.pop();
             }
 
-            if(blockElementStack.lastIsCodeblock()) {
-                if((current.isNotCodeblock() && current.isNotBlank()) || (current.isBlank() && (below === null || below.isNotCodeblock()))) {
+            if (blockElementStack.lastIsCodeblock()) {
+                if (current.isNotCodeblock() && current.isNotBlank() || current.isBlank() && (below === null || below.isNotCodeblock())) {
                     string += blockElementStack.pop();
                 }
             }
         },
-
-        closeNestableElementsIfNeeded = function() {
+            closeNestableElementsIfNeeded = function closeNestableElementsIfNeeded() {
             var prev = analyzedSentences.previousLine(),
-                closeList = function() {
-                    if(current.listLevel() < blockElementStack.listLevel()) {
-                        string += blockElementStack.popToListLevel(current.listLevel());
-
-                    } else if(current.listLevel() == blockElementStack.listLevel()) {
-                        if(current.isList()) {
-                            if(current.tag != blockElementStack.last().tag) {
-                                string += blockElementStack.pop();
-                            } else {
-                                string += "</li>";
-                            }
+                closeList = function closeList() {
+                if (current.listLevel() < blockElementStack.listLevel()) {
+                    string += blockElementStack.popToListLevel(current.listLevel());
+                } else if (current.listLevel() == blockElementStack.listLevel()) {
+                    if (current.isList()) {
+                        if (current.tag != blockElementStack.last().tag) {
+                            string += blockElementStack.pop();
+                        } else {
+                            string += "</li>";
                         }
-
                     }
-                };
+                }
+            };
 
-            if(current.quote < blockElementStack.quoteLevel()) {
-                if(prev.isBlank()) {
+            if (current.quote < blockElementStack.quoteLevel()) {
+                if (prev.isBlank()) {
                     string += blockElementStack.popToQuoteLevel(current.quote);
                 }
                 closeList();
-
-            } else if(current.quote > blockElementStack.quoteLevel()) {
-                if(prev && prev.isBlank()) {
+            } else if (current.quote > blockElementStack.quoteLevel()) {
+                if (prev && prev.isBlank()) {
                     string += blockElementStack.popToBlockquote();
                 }
 
                 string += blockElementStack.pushToQuoteLevel(current.quote);
-
             } else {
                 closeList();
             }
         },
-
-        openNestableElementsIfNeeded = function() {
+            openNestableElementsIfNeeded = function openNestableElementsIfNeeded() {
             var current = analyzedSentences.current(),
-                prev, previousChunk, nextChunk;
+                prev,
+                previousChunk,
+                nextChunk;
 
-
-            if(current.isList() && current.listLevel() > blockElementStack.listLevel()) {
+            if (current.isList() && current.listLevel() > blockElementStack.listLevel()) {
                 string += blockElementStack.push(current.tag, current.level);
-
-            } else if(current.listLevel() == blockElementStack.listLevel()) {
-                if(current.isList()) {
+            } else if (current.listLevel() == blockElementStack.listLevel()) {
+                if (current.isList()) {
                     string += "<li>";
                 }
             }
 
-            if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && current.level !== 0) {
+            if ((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && current.level !== 0) {
                 prev = analyzedSentences.previousLine();
 
-                if(current.isParagraph() && prev !== null && prev.isBlank()) {
-                    if(current.listLevel() == blockElementStack.listLevel()) {
+                if (current.isParagraph() && prev !== null && prev.isBlank()) {
+                    if (current.listLevel() == blockElementStack.listLevel()) {
                         string += blockElementStack.push(P);
                     }
-
-                } else if(current.isList()) {
+                } else if (current.isList()) {
                     nextChunk = analyzedSentences.nextChunk();
                     previousChunk = analyzedSentences.previousChunk();
 
-                    if(nextChunk && current.listLevel() == nextChunk.listLevel()) {
+                    if (nextChunk && current.listLevel() == nextChunk.listLevel()) {
                         string += blockElementStack.push(P);
-                    } else if(previousChunk && current.listLevel() == previousChunk.listLevel()) {
+                    } else if (previousChunk && current.listLevel() == previousChunk.listLevel()) {
                         string += blockElementStack.push(P);
                     }
                 }
             }
         },
-
-        openBlockElementsIfNeeded = function() {
-            if(current.isHeading() || current.isHorizontalLine()) {
+            openBlockElementsIfNeeded = function openBlockElementsIfNeeded() {
+            if (current.isHeading() || current.isHorizontalLine()) {
                 string += blockElementStack.push(current.tag);
-
-            } else if(current.isParagraph()) {
-                if((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && blockElementStack.listLevel() === 0) {
+            } else if (current.isParagraph()) {
+                if ((blockElementStack.isEmpty() || blockElementStack.lastIsNotParagraph()) && blockElementStack.listLevel() === 0) {
                     string += blockElementStack.push(current.tag);
                 }
-
-            } else if(current.isCodeblock()) {
-                if(blockElementStack.lastIsNotCodeblock()) {
+            } else if (current.isCodeblock()) {
+                if (blockElementStack.lastIsNotCodeblock()) {
                     string += blockElementStack.push(current.tag);
                 }
-
             }
         },
-
-        decodeContent = function() {
-            if(current.isCodeblock()) {
-                current.content = current.content.replace(/[<>&]/g, function(whole) {
-                    switch(whole) {
-                        case '<': return '&lt;';
-                        case '>': return '&gt;';
-                        case '&': return '&amp;';
+            decodeContent = function decodeContent() {
+            if (current.isCodeblock()) {
+                current.content = current.content.replace(/[<>&]/g, function (whole) {
+                    switch (whole) {
+                        case '<':
+                            return '&lt;';
+                        case '>':
+                            return '&gt;';
+                        case '&':
+                            return '&amp;';
                     }
                 });
-
             } else {
                 current.content = escapeRule.decode(current.content);
                 current.content = inlineRule.decode(current.content);
@@ -1440,29 +1468,26 @@ module.exports = (function() {
                 current.content = escapeRule.escape(current.content);
             }
 
-            if(current.isHeading() || current.isHorizontalLine()) {
+            if (current.isHeading() || current.isHorizontalLine()) {
                 string += current.content + blockElementStack.pop();
-
-            } else if(current.isBlank()) {
+            } else if (current.isBlank()) {
                 string += "\n";
-
-            } else if(current.isCodeblock()) {
+            } else if (current.isCodeblock()) {
                 string += current.content + "\n";
-
             } else {
                 string += current.content;
             }
         },
-
-        string = "", current;
+            string = "",
+            current;
 
         // 줄 단위로 확인한다.
-        while(analyzedSentences.goNext() !== null) {
+        while (analyzedSentences.goNext() !== null) {
             current = analyzedSentences.current();
 
             closeBlockElementsIfNeeded();
 
-            if(current.isNotBlank()) {
+            if (current.isNotBlank()) {
                 closeNestableElementsIfNeeded();
                 openNestableElementsIfNeeded();
             }
@@ -1474,34 +1499,29 @@ module.exports = (function() {
         return string;
     };
 
-    inlineRule.addRule([
-        [/--([^-\s]{1,2}|-[^-\s]|[^-\s]-|(?:[^\s].+?[^\s]))--/g,          '<del>$1</del>'],
-        [/,,([^,\s]{1,2}|,[^,\s]|[^,\s],|(?:[^\s].+?[^\s])),,/g,          '<sub>$1</sub>'],
-        [/\^\^([^\^\s]{1,2}|\^[^\^\s]|[^\^\s]\^|(?:[^\s].+?[^\s]))\^\^/g, '<sup>$1</sup>']
-    ]);
+    inlineRule.addRule([[/--([^-\s]{1,2}|-[^-\s]|[^-\s]-|(?:[^\s].+?[^\s]))--/g, '<del>$1</del>'], [/,,([^,\s]{1,2}|,[^,\s]|[^,\s],|(?:[^\s].+?[^\s])),,/g, '<sub>$1</sub>'], [/\^\^([^\^\s]{1,2}|\^[^\^\s]|[^\^\s]\^|(?:[^\s].+?[^\s]))\^\^/g, '<sup>$1</sup>']]);
 
     return {
-        decode: function(string) {
+        decode: function decode(string) {
             return translate.call(this, string);
         },
 
         // - sourceTextareaElement : 마크다운 형식의 문자열이 있는 HTML의 textarea element
         // - targetElement : HTML 형식의 번역 결과가 출력될 HTML element
-        run: function(sourceTextareaElement, targetElement, options) {
-            var scrollTargetElement = function() {
-                var thisElement   = sourceTextareaElement,
+        run: function run(sourceTextareaElement, targetElement, options) {
+            var scrollTargetElement = function scrollTargetElement() {
+                var thisElement = sourceTextareaElement,
                     targetScrollHeight = targetElement.scrollHeight,
                     targetClientHeight = targetElement.clientHeight,
-                    thisScrollTop    = thisElement.scrollTop,
+                    thisScrollTop = thisElement.scrollTop,
                     thisScrollHeight = thisElement.scrollHeight,
                     thisClientHeight = thisElement.clientHeight,
-                    scrollTop = (thisScrollTop / (thisScrollHeight - thisClientHeight)) * (targetScrollHeight - targetClientHeight);
+                    scrollTop = thisScrollTop / (thisScrollHeight - thisClientHeight) * (targetScrollHeight - targetClientHeight);
 
                 targetElement.scrollTop = scrollTop;
                 // $target.scrollTop(scrollTop);
             },
-
-            triggerEvent = function(element, eventName) {
+                triggerEvent = function triggerEvent(element, eventName) {
                 var event; // The custom event that will be created
 
                 if (document.createEvent) {
@@ -1520,27 +1540,27 @@ module.exports = (function() {
                     element.fireEvent("on" + event.eventType, event);
                 }
             },
-
-            addEvent = function(element, eventName, listener) {
-                if(element.addEventListener) {
+                addEvent = function addEvent(element, eventName, listener) {
+                if (element.addEventListener) {
                     element.addEventListener(eventName, listener, false);
-                } else if(element.attachEvent) {
-                    element.attachEvent("on"+eventName, listener);
+                } else if (element.attachEvent) {
+                    element.attachEvent("on" + eventName, listener);
                 } else {
                     element[eventName] = listener;
                 }
             },
 
+
             // 파이어폭스는 한글 상태에서 키보드를 눌렀을 때 최초의 한 번을 제외하고는 이벤트가 발생하지 않는 현상이 있다.
             // 그래서 브라우저가 파이어폭스일때는 최초의 한 번을 이용, 강제로 이벤트를 계속 발생시킨다.
-            forceKeydownEventForFirefox = function() {
-                if(navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
-                    if(forceFirfoxKeyPressIntervalId === null) {
+            forceKeydownEventForFirefox = function forceKeydownEventForFirefox() {
+                if (navigator.userAgent.toLowerCase().indexOf('firefox') != -1) {
+                    if (forceFirfoxKeyPressIntervalId === null) {
 
-                        forceFirfoxKeyPressIntervalId = setInterval(function() {
+                        forceFirfoxKeyPressIntervalId = setInterval(function () {
                             var now = new Date().getTime();
-                            if(now - lastPressedTime > INTERVAL_FOR_KEY_PRESS) {
-                                if(lastSource != sourceTextareaElement.value) {
+                            if (now - lastPressedTime > INTERVAL_FOR_KEY_PRESS) {
+                                if (lastSource != sourceTextareaElement.value) {
                                     lastSource = sourceTextareaElement.value;
                                     triggerEvent(sourceTextareaElement, 'keydown');
                                 }
@@ -1549,53 +1569,50 @@ module.exports = (function() {
                     }
                 }
             },
-
-            decodeSourceTextareaElementText = function(event) {
+                decodeSourceTextareaElementText = function decodeSourceTextareaElementText(event) {
                 var now;
 
-                if(event !== undefined && event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
+                if (event !== undefined && event.keyCode == 9 /* TAB Key */ && options.UseTabKey) {
                     event.preventDefault();
                     IndentHelper.indent(this, event.shiftKey);
                 }
 
                 now = new Date().getTime();
-                if(now - lastPressedTime < INTERVAL_FOR_KEY_PRESS) {
+                if (now - lastPressedTime < INTERVAL_FOR_KEY_PRESS) {
                     clearTimeout(lastPressedTimeoutId);
                 }
 
                 lastPressedTime = now;
-                lastPressedTimeoutId = setTimeout(function() {
+                lastPressedTimeoutId = setTimeout(function () {
                     targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
                     needToUpdate = false;
-                    if(options.AutoScrollPreview) {
+                    if (options.AutoScrollPreview) {
                         scrollTargetElement();
                     }
                     clearTimeout(firstPressedTimeoutId);
                 }, INTERVAL_FOR_KEY_PRESS);
 
-                if(!needToUpdate) {
+                if (!needToUpdate) {
                     needToUpdate = true;
-                    firstPressedTimeoutId = setTimeout(function() {
+                    firstPressedTimeoutId = setTimeout(function () {
                         targetElement.innerHTML = translate.call(self, sourceTextareaElement.value);
                         needToUpdate = false;
-                        if(options.AutoScrollPreview) {
+                        if (options.AutoScrollPreview) {
                             scrollTargetElement();
                         }
                     }, INTERVAL_FOR_UPDATE);
                 }
             },
-
-            self = this,
-            lastSource = sourceTextareaElement.value,
-            forceFirfoxKeyPressIntervalId = null,
-
-            lastPressedTime = 0,
-            lastPressedTimeoutId = null,
-            firstPressedTimeoutId = null,
-            needToUpdate = false;
+                self = this,
+                lastSource = sourceTextareaElement.value,
+                forceFirfoxKeyPressIntervalId = null,
+                lastPressedTime = 0,
+                lastPressedTimeoutId = null,
+                firstPressedTimeoutId = null,
+                needToUpdate = false;
 
             options = options === undefined ? {} : options;
-            options.UseTabKey         = options.UseTabKey         === undefined ? true : options.UseTabKey;
+            options.UseTabKey = options.UseTabKey === undefined ? true : options.UseTabKey;
             options.AutoScrollPreview = options.AutoScrollPreview === undefined ? true : options.AutoScrollPreview;
             // options.TabCharacter = options.TabCharacter === undefined ? 'space' : options.TabCharacter;
 
@@ -1603,19 +1620,22 @@ module.exports = (function() {
             forceKeydownEventForFirefox();
             decodeSourceTextareaElementText();
             addEvent(sourceTextareaElement, 'keydown', decodeSourceTextareaElementText);
-            addEvent(sourceTextareaElement, 'keyup',   function (event) {
+            addEvent(sourceTextareaElement, 'keyup', function (event) {
                 lastSource = event.target.value;
             });
 
-            if(options.AutoScrollPreview) {
+            if (options.AutoScrollPreview) {
                 addEvent(sourceTextareaElement, 'scroll', scrollTargetElement);
             }
         },
 
         // 추가적인 인라인 요소 번역 함수를 설정한다.
         // 이는 기존의 인라인 요소 문법에 대한 확인이 모두 끝난 다음에 실행된다.
-        addInlineRules: function(rulesArray) {
+        addInlineRules: function addInlineRules(rulesArray) {
             inlineRule.addRule(rulesArray);
         }
     };
-})();
+}();
+
+/***/ })
+/******/ ]);
